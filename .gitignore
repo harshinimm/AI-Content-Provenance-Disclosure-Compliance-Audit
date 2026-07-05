@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Large/binary working data — keep folder structure, not contents
+test_images/*
+!test_images/.gitkeep
+data/diffusion_forensics/*
+!data/diffusion_forensics/.gitkeep
+output/
+*.csv
+!schema_example.csv
