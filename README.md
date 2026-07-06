@@ -18,8 +18,13 @@ pip install -r requirements.txt
 
 External tools this pipeline shells out to (install separately):
 
-- **c2patool** — reads/verifies C2PA manifests. https://github.com/contentauth/c2patool
-  Verify it works: `c2patool path/to/sample.jpg`
+- **c2patool** — reads/verifies C2PA manifests. The standalone repo is
+  archived; it now lives in the `cli/` crate of
+  [contentauth/c2pa-rs](https://github.com/contentauth/c2pa-rs). Download a
+  prebuilt binary from the [releases page filtered for c2patool](https://github.com/contentauth/c2pa-rs/releases?q=c2patool)
+  (Windows: `c2patool-vX.Y.Z-x86_64-pc-windows-msvc.zip`), extract, and put
+  `c2patool.exe` on PATH. Verify it works: `c2patool -h`, then
+  `c2patool path/to/sample.jpg`.
 - **DIRE** — diffusion reconstruction error classifier. Clone
   https://github.com/ZhendongWang6/DIRE, get a pretrained checkpoint, then set:
   ```bash
