@@ -25,10 +25,18 @@ import pandas as pd
 
 from audit.pipeline import run_image
 from audit.scraper import scrape_images
+from audit.synthid import METHOD_UNOFFICIAL
 from audit.transforms import BATTERY
 
 VARIANT_SUFFIXES = tuple(f"_{name}" for name in BATTERY)
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def _fmt_synthid(detected: bool | None, method: str) -> str:
+    if detected is None:
+        return "N/A"
+    suffix = " (unofficial)" if method == METHOD_UNOFFICIAL else ""
+    return f"{detected}{suffix}"
 
 
 def _is_source_image(path: Path) -> bool:
@@ -96,7 +104,10 @@ def main(image_dir: Path | None, site_url: str | None, output_dir: Path, max_pag
                 "source": r.source,
                 "tool": r.tool,
                 "C2PA pre/post": f"{r.c2pa_pre}/{r.c2pa_post}",
-                "SynthID pre/post": f"{r.synthid_pre}/{r.synthid_post}",
+                "SynthID pre/post": (
+                    f"{_fmt_synthid(r.synthid_pre, r.synthid_pre_method)}/"
+                    f"{_fmt_synthid(r.synthid_post, r.synthid_post_method)}"
+                ),
                 "DIRE pre/post": f"{r.dire_pre}/{r.dire_post}",
                 "Article 50 verdict": r.article50_verdict,
                 "SB 942 verdict": r.sb942_verdict,

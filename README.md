@@ -28,35 +28,51 @@ External tools this pipeline shells out to (install separately):
   ```
   Without these set, DIRE checks are skipped (recorded as `None`, not scored).
 - **SynthID** — Google's official [SynthID Detector](https://blog.google/innovation-and-ai/products/google-synthid-ai-content-detector/)
-  portal now exists, but it's a one-file-at-a-time web upload, currently
-  gated to a journalist/researcher waitlist, with no public API — so it
-  can't be scripted into this pipeline.
-  Plan: switch `synthid.py` from the manual-check design to
+  portal exists but is a one-file-at-a-time web upload, currently gated to a
+  journalist/researcher waitlist, with no public API — can't be scripted.
+  Instead, `synthid.py` shells out to
   [`gpt-image-synthid-detector`](https://github.com/newideas99/gpt-image-synthid-detector),
-  a pip-installable open-source CNN classifier with pretrained weights that
-  self-reports ~97% validation accuracy against OpenAI's public verifier.
-  Caveats to carry into the output:
-  - It's trained/validated on **GPT-Image-2** (OpenAI's SynthID
-    implementation) only — accuracy on Google's own Imagen/Veo/Gemini-native
-    images is unproven, even though both now use the shared SynthID standard.
+  an open-source CNN ensemble (PyTorch; not pip-installable as a package —
+  clone it and install its own `requirements.txt`, which pulls in
+  `torch`/`torchvision`):
+  ```bash
+  git clone https://github.com/newideas99/gpt-image-synthid-detector
+  cd gpt-image-synthid-detector && pip install -r requirements.txt && cd -
+  export SYNTHID_DETECTOR_REPO=/path/to/gpt-image-synthid-detector
+  ```
+  Without `SYNTHID_DETECTOR_REPO` set, checks are recorded as `None` (not
+  scored) — same fail-safe pattern as DIRE. You can also pass
+  `manual_override=True/False` to `synthid.check()` to record a result
+  verified another way (e.g. via the official portal, once you have
+  waitlist access) instead of the automated estimate.
+
+  Caveats carried into every output row (`synthid.py`'s `method` field,
+  surfaced as `"(unofficial)"` in the CSV and as a note):
+  - Trained/validated on **GPT-Image-2** (OpenAI's SynthID implementation)
+    only — accuracy on Google's own Imagen/Veo/Gemini-native images is
+    unproven, even though both now use the shared SynthID standard.
   - Minimal community validation (3 stars, 1 fork, single commit) — the 97%
-    figure is self-reported, not independently vetted.
+    self-reported validation accuracy figure isn't independently vetted.
   - Licensed **PolyForm Noncommercial** — fine for this audit/Substack use,
     but blocks commercial use if this ever becomes a productized tool.
-  Because of this, the SynthID column should be labeled in output as a
-  **"community-detector estimate (unofficial)"** rather than presented as
-  equivalent to Google's own verification, and rows for likely
-  non-GPT-Image-2 sources should be flagged lower-confidence.
+  Because of this, the SynthID columns are labeled `(unofficial)` rather
+  than presented as equivalent to Google's own verification, and rows for
+  likely non-GPT-Image-2 sources should be treated as lower-confidence.
 
-### Troubleshooting: SSL errors when scraping
+### Troubleshooting: SSL errors on Windows
 
-If `--url` fails every page with SSL/certificate errors on Windows, it's
-almost always antivirus HTTPS-scanning injecting a root cert that `certifi`'s
-bundle doesn't trust — not a real network block. Fix by pulling in the
-Windows trust store instead of disabling verification:
+If `--url` fails every page with SSL/certificate errors, or `git push`
+fails with "unable to get local issuer certificate," it's almost always
+antivirus HTTPS-scanning injecting a root cert that the tool's bundled CA
+store doesn't trust — not a real network block. Fix by pointing each tool at
+the Windows trust store instead of disabling verification:
 
 ```bash
+# for the scraper (Python/requests)
 pip install pip-system-certs
+
+# for git push/fetch over https, scoped to this repo
+git config http.sslBackend schannel
 ```
 
 ## Usage
@@ -92,12 +108,11 @@ Writes `output/results.csv` and `output/results.md` with columns:
 audit/
   scraper.py     # Step 0: same-domain image crawl + manifest, robots.txt-respecting
   c2pa.py        # c2patool wrapper, manifest + rights-field parsing
-  synthid.py     # manual-check recorder today; migrating to
-                 # gpt-image-synthid-detector for full automation (see Setup)
+  synthid.py     # gpt-image-synthid-detector wrapper (unofficial estimate) + manual_override escape hatch
   dire.py        # pluggable wrapper around a cloned DIRE checkout
   transforms.py  # Pillow-based screenshot/recompress/crop/resize battery
   verdict.py     # Article 50(2) / SB 942 / IP-flag legal encoding
-  pipeline.py    # per-image orchestration: baseline -> battery -> re-check
+  pipeline.py    # per-image orchestration: DIRE triage gate -> baseline -> battery -> re-check
 audit.py         # CLI entrypoint
 test_images/     # your self-generated images, one subfolder per tool (gitignored)
 data/diffusion_forensics/  # DiffusionForensics dataset for DIRE (gitignored)
@@ -106,12 +121,13 @@ data/diffusion_forensics/  # DiffusionForensics dataset for DIRE (gitignored)
 ## Status
 
 Scaffold stage. `scraper.py`, `transforms.py`, and `verdict.py` are fully
-implemented. `c2pa.py` and `dire.py` need their external tools
-installed/configured per above before checks return real data. `synthid.py`
-still uses the old manual-check design — next up is swapping it for
-`gpt-image-synthid-detector` so the whole pipeline runs unattended (see
-Setup notes above for caveats to carry into the output). Also still
-pending: gating the pipeline on DIRE's triage verdict so scraped sites only
-run the expensive C2PA/SynthID/transform checks on the DIRE-flagged subset,
-per the project guide's Step 1 — right now every scraped image runs the
-full pipeline regardless of DIRE's verdict.
+implemented. `pipeline.py` now gates on DIRE's triage verdict: images DIRE
+classifies as real skip C2PA/SynthID/transform checks entirely (verdict
+recorded as "Not Applicable"), and it fails open (runs full checks) if DIRE
+errors or isn't configured, so `--url` won't silently report everything as
+compliant before DIRE is wired up. `synthid.py` now automates checks via
+`gpt-image-synthid-detector`, labeling results `(unofficial)` in the CSV per
+the caveats above; `manual_override` remains available as an escape hatch.
+`c2pa.py`, `dire.py`, and the SynthID detector still need their external
+tools/checkpoints installed and env vars set (per Setup above) before checks
+return real data instead of `None`.
