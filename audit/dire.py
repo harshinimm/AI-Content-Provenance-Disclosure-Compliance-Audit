@@ -1,11 +1,20 @@
 """DIRE (DIffusion Reconstruction Error) scoring.
 
-Wraps a pretrained DIRE checkpoint/classifier from ZhendongWang6/DIRE. This
-module doesn't vendor the model — set DIRE_SCRIPT and DIRE_MODEL_PATH to
-point at a cloned checkout, or pass them explicitly to `check()`.
+DIRE's real pipeline is two GPU/MPI-bound stages (diffusion reconstruction,
+then classification) — impractical on a machine with no GPU. The supported
+path here is `colab/dire_batch.ipynb`: run it on Colab's free GPU, download
+its `dire_results.csv`, and point DIRE_RESULTS_CSV at it. Results are looked
+up by filename.
+
+A live-subprocess path (DIRE_SCRIPT/DIRE_MODEL_PATH) is kept for a future
+GPU machine, but is unverified — it assumes a single script that prints
+JSON, which doesn't match the real ZhendongWang6/DIRE repo (see README) and
+would need fixing before relying on it.
 """
 from __future__ import annotations
 
+import csv
+import functools
 import json
 import os
 import subprocess
@@ -21,19 +30,41 @@ class DIREResult:
     error: str | None = None
 
 
+@functools.lru_cache(maxsize=None)
+def _load_results_csv(csv_path: str) -> dict[str, DIREResult]:
+    results = {}
+    with open(csv_path, newline="") as f:
+        for row in csv.DictReader(f):
+            results[row["filename"]] = DIREResult(
+                reconstruction_error=float(row["dire_score"]),
+                is_generated=row["is_generated"].strip().lower() == "true",
+            )
+    return results
+
+
 def check(
     image_path: str | Path,
     script_path: str | None = None,
     model_path: str | None = None,
+    results_csv: str | None = None,
 ) -> DIREResult:
-    """Run DIRE inference on a single image.
+    """Look up (or, if configured, compute) a DIRE result for one image.
 
-    Expects `script_path` to be a Python script (from a cloned DIRE repo)
-    that accepts `--image`, `--model`, and prints a JSON object like
-    `{"dire_score": 0.0123, "is_generated": true}` to stdout. Wire up the
-    exact invocation once you've cloned github.com/ZhendongWang6/DIRE and
-    have a checkpoint.
+    Checks DIRE_RESULTS_CSV first (see `colab/dire_batch.ipynb`), falling
+    back to the live DIRE_SCRIPT/DIRE_MODEL_PATH subprocess path.
     """
+    results_csv = results_csv or os.environ.get("DIRE_RESULTS_CSV")
+    if results_csv:
+        filename = Path(image_path).name
+        results = _load_results_csv(results_csv)
+        if filename in results:
+            return results[filename]
+        return DIREResult(
+            reconstruction_error=None,
+            is_generated=None,
+            error=f"{filename} not found in {results_csv} — was it included in the Colab batch?",
+        )
+
     script_path = script_path or os.environ.get("DIRE_SCRIPT")
     model_path = model_path or os.environ.get("DIRE_MODEL_PATH")
 
@@ -41,7 +72,8 @@ def check(
         return DIREResult(
             reconstruction_error=None,
             is_generated=None,
-            error="DIRE not configured — set DIRE_SCRIPT and DIRE_MODEL_PATH env vars.",
+            error="DIRE not configured — set DIRE_RESULTS_CSV (see colab/dire_batch.ipynb), "
+            "or DIRE_SCRIPT/DIRE_MODEL_PATH for the unverified live path.",
         )
 
     proc = subprocess.run(

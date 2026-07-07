@@ -40,7 +40,7 @@ independent — set up as many as you need.
 | Tool | What it checks | Set this env var |
 |---|---|---|
 | [c2patool](#c2patool) | C2PA manifest present/survives | `C2PATOOL_PATH` |
-| [DIRE](#dire) | Is this image AI-generated at all (the triage gate) | `DIRE_SCRIPT`, `DIRE_MODEL_PATH` |
+| [DIRE](#dire) | Is this image AI-generated at all (the triage gate) | `DIRE_RESULTS_CSV` (run via Colab — no GPU needed locally) |
 | [gpt-image-synthid-detector](#synthid-detector) | SynthID watermark present/survives (unofficial estimate) | `SYNTHID_DETECTOR_REPO` |
 
 ### c2patool
@@ -58,18 +58,22 @@ c2patool -h
 
 ### DIRE
 
-⚠️ **Known issue:** `audit/dire.py` expects a script that prints JSON
-(`{"dire_score": ..., "is_generated": ...}`). The actual DIRE repo's
-`demo.py -f <image> -m <model>` doesn't output that — this needs a fix
-once someone has it cloned and can confirm the real output format. Don't
-rely on DIRE results until this is resolved.
+DIRE's real pipeline is two GPU/MPI-bound stages — reconstruct each image
+via a diffusion model, then classify the reconstruction error — impractical
+on a machine with no GPU. **Run it on Colab's free GPU instead:**
 
 ```bash
-git clone https://github.com/ZhendongWang6/DIRE
-# get a pretrained checkpoint from the README's BaiduDrive link (password: dire)
-export DIRE_SCRIPT=/path/to/DIRE/demo.py      # will need adjusting, see above
-export DIRE_MODEL_PATH=/path/to/checkpoint.pt
+# 1. Open colab/dire_batch.ipynb in Google Colab (Runtime -> GPU)
+# 2. Run all cells (uploads your images + the classifier checkpoint, downloads dire_results.csv)
+# 3. Locally:
+export DIRE_RESULTS_CSV=/path/to/dire_results.csv
 ```
+
+`dire.py` looks up each image by filename in that CSV. A live local path
+(`DIRE_SCRIPT`/`DIRE_MODEL_PATH`) also exists for a future GPU machine, but
+it's unverified — the real DIRE repo doesn't actually expose a single
+JSON-emitting script the way that path assumes (see `colab/dire_batch.ipynb`
+for the real two-stage breakdown).
 
 ### SynthID detector
 
@@ -126,6 +130,6 @@ data/diffusion_forensics/  # DiffusionForensics dataset for DIRE (gitignored)
 
 ## Status
 
-- **Working:** scraper, DIRE triage gate, C2PA checks, SynthID checks (unofficial), transform battery, legal verdict logic
-- **Not working yet:** DIRE itself — see Known Issue above
+- **Working:** scraper, DIRE triage gate, C2PA checks, SynthID checks (unofficial), transform battery, legal verdict logic, DIRE via `colab/dire_batch.ipynb` + `DIRE_RESULTS_CSV`
+- **Unverified:** the live local DIRE path (`DIRE_SCRIPT`/`DIRE_MODEL_PATH`) — untested, needs a GPU machine to confirm
 - **Not started:** picking a target company to actually audit
