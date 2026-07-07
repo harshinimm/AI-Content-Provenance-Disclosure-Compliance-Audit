@@ -1,10 +1,13 @@
 """Wrapper around c2patool for reading/verifying C2PA manifests.
 
-Requires c2patool on PATH: https://github.com/contentauth/c2patool
+The standalone contentauth/c2patool repo is archived; get it from the
+cli/ crate of contentauth/c2pa-rs (see README). Set C2PATOOL_PATH to the
+binary if it isn't on PATH.
 """
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -47,16 +50,18 @@ def _extract_rights_fields(manifest: dict[str, Any]) -> dict[str, Any]:
 
 def check(image_path: str | Path) -> C2PAResult:
     """Run c2patool against a single image and parse the manifest, if any."""
-    if shutil.which("c2patool") is None:
+    binary = os.environ.get("C2PATOOL_PATH") or shutil.which("c2patool")
+    if binary is None:
         return C2PAResult(
             present=False,
             manifest=None,
             rights_fields=None,
-            error="c2patool not found on PATH — install from github.com/contentauth/c2patool",
+            error="c2patool not found — set C2PATOOL_PATH or put it on PATH "
+            "(see README for install instructions)",
         )
 
     proc = subprocess.run(
-        ["c2patool", str(image_path)],
+        [binary, str(image_path)],
         capture_output=True,
         text=True,
     )

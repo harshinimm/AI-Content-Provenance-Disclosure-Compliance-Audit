@@ -22,9 +22,13 @@ External tools this pipeline shells out to (install separately):
   archived; it now lives in the `cli/` crate of
   [contentauth/c2pa-rs](https://github.com/contentauth/c2pa-rs). Download a
   prebuilt binary from the [releases page filtered for c2patool](https://github.com/contentauth/c2pa-rs/releases?q=c2patool)
-  (Windows: `c2patool-vX.Y.Z-x86_64-pc-windows-msvc.zip`), extract, and put
-  `c2patool.exe` on PATH. Verify it works: `c2patool -h`, then
-  `c2patool path/to/sample.jpg`.
+  (Windows: `c2patool-vX.Y.Z-x86_64-pc-windows-msvc.zip`) and extract it
+  anywhere. Either put `c2patool.exe` on PATH, or point at it directly
+  (same env-var pattern as DIRE/SynthID below):
+  ```bash
+  export C2PATOOL_PATH=/path/to/c2patool.exe
+  ```
+  Verify it works: `c2patool -h`, then `c2patool path/to/sample.jpg`.
 - **DIRE** — diffusion reconstruction error classifier. Clone
   https://github.com/ZhendongWang6/DIRE, get a pretrained checkpoint, then set:
   ```bash

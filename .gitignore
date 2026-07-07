@@ -12,3 +12,7 @@ data/diffusion_forensics/*
 output/
 *.csv
 !schema_example.csv
+
+# Locally-extracted external tool binaries (c2patool, cloned DIRE/SynthID
+# detector checkouts) — install path is documented in README, not committed
+c2patool/
