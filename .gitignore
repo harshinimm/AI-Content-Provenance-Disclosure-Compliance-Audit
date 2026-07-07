@@ -16,3 +16,5 @@ output/
 # Locally-extracted external tool binaries (c2patool, cloned DIRE/SynthID
 # detector checkouts) — install path is documented in README, not committed
 c2patool/
+gpt-image-synthid-detector/
+DIRE/

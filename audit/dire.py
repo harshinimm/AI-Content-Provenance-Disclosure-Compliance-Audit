@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -44,7 +45,11 @@ def check(
         )
 
     proc = subprocess.run(
-        ["python", script_path, "--image", str(image_path), "--model", model_path],
+        # sys.executable, not "python" — bare "python" can resolve to a
+        # different interpreter than the one actually running this process
+        # (observed on Windows: it silently picked a system install without
+        # the venv's packages installed), which fails opaquely downstream.
+        [sys.executable, script_path, "--image", str(image_path), "--model", model_path],
         capture_output=True,
         text=True,
     )

@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -73,7 +74,13 @@ def check(
         )
 
     proc = subprocess.run(
-        ["python", str(detect_script), str(image_path)],
+        # sys.executable, not "python" — bare "python" can resolve to a
+        # different interpreter than the one actually running this process
+        # and silently lack torch/torchvision, failing opaquely downstream.
+        # image_path is resolved to absolute first since cwd is pinned to
+        # the detector repo below (a relative path would resolve against
+        # the wrong directory otherwise).
+        [sys.executable, str(detect_script), str(Path(image_path).resolve())],
         cwd=repo,  # detect.py resolves weights/ relative to cwd, not the script's location
         capture_output=True,
         text=True,
