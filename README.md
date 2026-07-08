@@ -27,20 +27,20 @@ Notes:
 - Local-folder mode expects one subfolder per generation tool, e.g.
   `test_images/dalle/img1.png`, `test_images/imagen/img1.png`.
 
-**You don't need any external tools installed to run this** — C2PA, DIRE,
-and SynthID checks all fail safely (recorded as `None`, not scored) until
-you set them up below. Wiring them up is what turns placeholder output into
-a real audit.
+**DIRE triage works out of the box** — `pip install -r requirements.txt`
+gets you a real (if practical-substitute) DIRE gate with no extra setup, no
+GPU, no external tool. C2PA and SynthID checks fail safely (recorded as
+`None`, not scored) until you set those two up below.
 
 ## External tools
 
-Three checks shell out to a separate tool. Each one is optional and
-independent — set up as many as you need.
+Two checks shell out to a separate tool you need to set up; DIRE now works
+by default.
 
-| Tool | What it checks | Set this env var |
+| Tool | What it checks | Setup |
 |---|---|---|
+| [DIRE](#dire) | Is this image AI-generated at all (the triage gate) | None — works out of the box |
 | [c2patool](#c2patool) | C2PA manifest present/survives | `C2PATOOL_PATH` |
-| [DIRE](#dire) | Is this image AI-generated at all (the triage gate) | `DIRE_RESULTS_CSV` (run via Colab — no GPU needed locally) |
 | [gpt-image-synthid-detector](#synthid-detector) | SynthID watermark present/survives (unofficial estimate) | `SYNTHID_DETECTOR_REPO` |
 
 ### c2patool
@@ -58,22 +58,27 @@ c2patool -h
 
 ### DIRE
 
-DIRE's real pipeline is two GPU/MPI-bound stages — reconstruct each image
-via a diffusion model, then classify the reconstruction error — impractical
-on a machine with no GPU. **Run it on Colab's free GPU instead:**
+The paper's real method (ICCV 2023) needs two GPU/MPI-bound stages, and its
+pretrained checkpoint only exists on Baidu/RecDrive — both often unreachable
+outside China (we hit this directly: neither loaded). No accessible mirror
+exists anywhere (checked HuggingFace, GitHub).
 
-```bash
-# 1. Open colab/dire_batch.ipynb in Google Colab (Runtime -> GPU)
-# 2. Run all cells (uploads your images + the classifier checkpoint, downloads dire_results.csv)
-# 3. Locally:
-export DIRE_RESULTS_CSV=/path/to/dire_results.csv
-```
+**Default path — works with no setup at all:** `dire.py` uses
+[`Ateeqq/ai-vs-human-image-detector`](https://huggingface.co/Ateeqq/ai-vs-human-image-detector)
+instead, a general AI-vs-human image classifier (SigLIP, Apache-2.0, CPU-only,
+120k-image training set). It's honestly labeled in output/notes as a
+*"practical substitute for DIRE,"* not the paper's actual
+diffusion-reconstruction-error technique. Weights download automatically
+the first time you run the tool (~400MB, one-time, straight from
+HuggingFace over normal HTTPS — no Baidu involved).
 
-`dire.py` looks up each image by filename in that CSV. A live local path
-(`DIRE_SCRIPT`/`DIRE_MODEL_PATH`) also exists for a future GPU machine, but
-it's unverified — the real DIRE repo doesn't actually expose a single
-JSON-emitting script the way that path assumes (see `colab/dire_batch.ipynb`
-for the real two-stage breakdown).
+**If you do get the real DIRE checkpoint working** (e.g. from within China,
+or a VPN), `colab/dire_batch.ipynb` runs the actual paper method on Colab's
+free GPU and produces a `dire_results.csv` — set `DIRE_RESULTS_CSV` and
+`dire.py` prefers that over the local classifier, looking up each image by
+filename. A live local path (`DIRE_SCRIPT`/`DIRE_MODEL_PATH`) also exists
+for a future GPU machine, but is unverified — the real DIRE repo doesn't
+expose a single JSON-emitting script the way that path assumes.
 
 ### SynthID detector
 
@@ -120,7 +125,7 @@ audit/
   pipeline.py    # per-image orchestration: DIRE triage gate -> checks -> transform battery -> re-check
   c2pa.py        # c2patool wrapper
   synthid.py     # SynthID detector wrapper (unofficial) + manual_override
-  dire.py        # DIRE wrapper (see Known Issue above)
+  dire.py        # local classifier by default (practical substitute); DIRE_RESULTS_CSV/DIRE_SCRIPT as alternates
   transforms.py  # screenshot/recompress/crop/resize battery
   verdict.py     # Article 50(2) / SB 942 / IP-flag legal encoding
 audit.py         # CLI entrypoint
@@ -130,6 +135,8 @@ data/diffusion_forensics/  # DiffusionForensics dataset for DIRE (gitignored)
 
 ## Status
 
-- **Working:** scraper, DIRE triage gate, C2PA checks, SynthID checks (unofficial), transform battery, legal verdict logic, DIRE via `colab/dire_batch.ipynb` + `DIRE_RESULTS_CSV`
+- **Working out of the box:** scraper, DIRE triage gate (local classifier, no setup), transform battery, legal verdict logic
+- **Working, needs setup:** C2PA checks (`C2PATOOL_PATH`), SynthID checks (`SYNTHID_DETECTOR_REPO`, unofficial)
+- **Working, optional:** the real DIRE method via `colab/dire_batch.ipynb` + `DIRE_RESULTS_CSV`, if you can reach Baidu/RecDrive
 - **Unverified:** the live local DIRE path (`DIRE_SCRIPT`/`DIRE_MODEL_PATH`) — untested, needs a GPU machine to confirm
 - **Not started:** picking a target company to actually audit

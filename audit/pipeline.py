@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import c2pa, dire, synthid, transforms
+from .dire import METHOD_LOCAL_CLASSIFIER as DIRE_METHOD_LOCAL_CLASSIFIER
 from .synthid import METHOD_UNCONFIGURED, METHOD_UNOFFICIAL
 from .verdict import SignalSurvival, article50_verdict, ip_flag, sb942_verdict
 
@@ -56,6 +57,11 @@ def run_image(
     dire_pre_result = dire.check(src)
     if dire_pre_result.error:
         notes.append(f"DIRE pre-check: {dire_pre_result.error}")
+    if dire_pre_result.method == DIRE_METHOD_LOCAL_CLASSIFIER:
+        notes.append(
+            "DIRE triage used a general AI-vs-human image classifier, not the paper's "
+            "diffusion-reconstruction-error method — see audit/dire.py"
+        )
 
     if dire_pre_result.is_generated is False:
         notes.append(
