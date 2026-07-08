@@ -29,6 +29,24 @@
   font-size: 0.9em;
 }
 
+.errorText {
+  color: #a5271c;
+}
+
+.progress {
+  height: 4px;
+  background: var(--color-grey-light);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: var(--spacing-2);
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--color-blue);
+  transition: width 0.4s ease;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -60,39 +78,66 @@
   opacity: 0.7;
 }
 
-.tableWrap {
-  overflow-x: auto;
-  border: 1px solid var(--color-grey-light);
-  border-radius: 1rem;
-  background: var(--color-white);
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--spacing-2);
 }
 
-.table {
+.card {
+  background: var(--color-white);
+  border: 1px solid var(--color-grey-light);
+  border-radius: 1rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.thumbWrap {
+  aspect-ratio: 4 / 3;
+  background: var(--color-whitesmoke);
+  overflow: hidden;
+}
+
+.thumb {
   width: 100%;
-  border-collapse: collapse;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cardBody {
+  padding: var(--spacing-1) 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.cardSource {
+  font-size: var(--font-size-copytext-small);
+  color: var(--color-grey);
+}
+
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.cardMeta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
   font-size: var(--font-size-copytext-small);
 }
 
-.table th,
-.table td {
-  text-align: left;
-  padding: 0.85rem 1rem;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--color-grey-light);
-}
-
-.table th {
+.cardMeta dt {
   color: var(--color-grey);
-  font-weight: 500;
-  font-size: 0.8em;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-.table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.table tbody tr:hover {
-  background: var(--color-whitesmoke);
+.cardMeta dd {
+  margin: 0;
+  color: var(--color-dark-grey);
+  overflow-wrap: anywhere;
 }

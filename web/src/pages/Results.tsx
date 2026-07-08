@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
 import { VerdictBadge } from "../components/VerdictBadge";
+import { getAudit, imageUrl, type AuditJob } from "../lib/api";
 import {
   shortSource,
   verdictTone,
@@ -17,21 +19,46 @@ const FILTERS: { label: string; tone: VerdictTone | "all" }[] = [
   { label: "Not Applicable", tone: "na" },
 ];
 
+function jobRowToResultRow(row: AuditJob["rows"][number]): ResultRow & {
+  image: string;
+} {
+  return {
+    source: row.source,
+    tool: row.tool,
+    c2pa: row.c2pa,
+    synthid: row.synthid,
+    dire: row.dire,
+    article50: row.article50,
+    sb942: row.sb942,
+    ipFlag: row.ipFlag,
+    image: imageUrl(row.imageUrl),
+  };
+}
+
 export function Results() {
-  const [rows, setRows] = useState<ResultRow[]>([]);
+  const [searchParams] = useSearchParams();
+  const jobId = searchParams.get("job");
+
+  const [rows, setRows] = useState<(ResultRow & { image: string })[]>([]);
+  const [job, setJob] = useState<AuditJob | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<VerdictTone | "all">("all");
+  const pollRef = useRef<number | null>(null);
 
+  // Static example dataset — no job param, no live backend needed.
   useEffect(() => {
+    if (jobId) return;
     Papa.parse<Record<string, string>>("/data/results.csv", {
       download: true,
       header: true,
       skipEmptyLines: true,
       complete: (parsed) => {
-        const mapped = parsed.data.map(
-          (r): ResultRow => ({
+        const mapped = parsed.data.map((r) => {
+          const filename = shortSource(r["source"] ?? "");
+          return {
             source: r["source"] ?? "",
             tool: r["tool"] ?? "",
             c2pa: r["C2PA pre/post"] ?? "",
@@ -40,14 +67,50 @@ export function Results() {
             article50: r["Article 50 verdict"] ?? "",
             sb942: r["SB 942 verdict"] ?? "",
             ipFlag: r["IP flag"] ?? "",
-          }),
-        );
+            image: `/data/images/${filename}`,
+          };
+        });
         setRows(mapped);
         setStatus("ready");
       },
       error: () => setStatus("error"),
     });
-  }, []);
+  }, [jobId]);
+
+  // Live job — poll the backend until it's done.
+  useEffect(() => {
+    if (!jobId) return;
+
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const data = await getAudit(jobId!);
+        if (cancelled) return;
+        setJob(data);
+        setRows(data.rows.map(jobRowToResultRow));
+        if (data.status === "done") {
+          setStatus("ready");
+        } else if (data.status === "error") {
+          setStatus("error");
+          setErrorMsg(data.error);
+        } else {
+          setStatus("ready"); // show partial rows as they stream in
+          pollRef.current = window.setTimeout(poll, 2000);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setStatus("error");
+        setErrorMsg(err instanceof Error ? err.message : "Failed to load job");
+      }
+    }
+
+    poll();
+    return () => {
+      cancelled = true;
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, [jobId]);
 
   const filtered = useMemo(
     () =>
@@ -66,20 +129,42 @@ export function Results() {
     return c;
   }, [rows]);
 
+  const isLive = Boolean(jobId);
+  const isRunning = job && job.status !== "done" && job.status !== "error";
+
   return (
     <main className={`container ${styles.page}`}>
       <header className={styles.header}>
         <span className="mono">results</span>
-        <h1>Per-image audit output</h1>
+        <h1>
+          {isLive ? "Live audit run" : "Example: elevenlabs.io"}
+        </h1>
         <p>
-          Raw output from <code>output/results.csv</code> — every scraped
-          image DIRE flagged as likely AI-generated, checked for C2PA/
-          SynthID signals before and after a screenshot/recompress/crop/
-          resize battery.{" "}
-          {rows.length > 0 && (
+          {isLive ? (
+            job ? (
+              <>
+                Auditing <strong>{job.url}</strong> —{" "}
+                {job.status === "scraping" && "crawling for images…"}
+                {job.status === "auditing" &&
+                  `checked ${job.completed} of ${job.total} flagged images…`}
+                {job.status === "done" &&
+                  `${job.rows.length} image(s) DIRE flagged as likely AI-generated, checked for C2PA/SynthID signals before and after a transform battery.`}
+              </>
+            ) : (
+              "Starting audit…"
+            )
+          ) : (
             <>
-              {rows.length} images scraped, targeting{" "}
-              <strong>{rows[0]?.tool}</strong>.
+              Raw output from a real run — every scraped image DIRE flagged
+              as likely AI-generated, checked for C2PA/SynthID signals
+              before and after a screenshot/recompress/crop/resize battery.
+              {rows.length > 0 && (
+                <>
+                  {" "}
+                  {rows.length} images scraped, targeting{" "}
+                  <strong>{rows[0]?.tool}</strong>.
+                </>
+              )}
             </>
           )}
         </p>
@@ -87,14 +172,26 @@ export function Results() {
 
       {status === "loading" && <p>Loading results…</p>}
       {status === "error" && (
-        <p>
-          Couldn't load <code>/data/results.csv</code>. Copy a fresh export
-          from <code>output/results.csv</code> into{" "}
-          <code>web/public/data/results.csv</code>.
+        <p className={styles.errorText}>
+          {errorMsg ??
+            "Couldn't load results. If this was a live run, the audit job may have failed."}
         </p>
       )}
 
-      {status === "ready" && (
+      {isRunning && (
+        <div className={styles.progress}>
+          <div
+            className={styles.progressBar}
+            style={{
+              width: job.total
+                ? `${(job.completed / job.total) * 100}%`
+                : "8%",
+            }}
+          />
+        </div>
+      )}
+
+      {(status === "ready" || isRunning) && rows.length > 0 && (
         <>
           <div className={styles.filters}>
             {FILTERS.map((f) => (
@@ -115,37 +212,42 @@ export function Results() {
             ))}
           </div>
 
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Source</th>
-                  <th>C2PA pre/post</th>
-                  <th>SynthID pre/post</th>
-                  <th>DIRE pre/post</th>
-                  <th>Article 50</th>
-                  <th>SB 942</th>
-                  <th>IP flag</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((row, i) => (
-                  <tr key={i}>
-                    <td className="mono">{shortSource(row.source)}</td>
-                    <td className="mono">{row.c2pa}</td>
-                    <td className="mono">{row.synthid}</td>
-                    <td className="mono">{row.dire}</td>
-                    <td>
-                      <VerdictBadge verdict={row.article50} />
-                    </td>
-                    <td>
-                      <VerdictBadge verdict={row.sb942} />
-                    </td>
-                    <td>{row.ipFlag}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className={styles.grid}>
+            {filtered.map((row, i) => (
+              <article key={i} className={styles.card}>
+                <div className={styles.thumbWrap}>
+                  <img
+                    src={row.image}
+                    alt=""
+                    className={styles.thumb}
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        "none";
+                    }}
+                  />
+                </div>
+                <div className={styles.cardBody}>
+                  <p className={`mono ${styles.cardSource}`}>
+                    {shortSource(row.source)}
+                  </p>
+                  <div className={styles.badgeRow}>
+                    <VerdictBadge verdict={row.article50} />
+                    <VerdictBadge verdict={row.sb942} />
+                  </div>
+                  <dl className={styles.cardMeta}>
+                    <dt>C2PA</dt>
+                    <dd className="mono">{row.c2pa}</dd>
+                    <dt>SynthID</dt>
+                    <dd className="mono">{row.synthid}</dd>
+                    <dt>DIRE</dt>
+                    <dd className="mono">{row.dire}</dd>
+                    <dt>IP flag</dt>
+                    <dd>{row.ipFlag}</dd>
+                  </dl>
+                </div>
+              </article>
+            ))}
           </div>
         </>
       )}

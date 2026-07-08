@@ -29,10 +29,26 @@
   margin-bottom: var(--spacing-3);
 }
 
-.heroActions {
+.form {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-1);
+  gap: 0.6rem;
+  max-width: 32rem;
+}
+
+.input {
+  flex: 1;
+  padding: 0.85rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-grey-light);
+  background: var(--color-white);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-copytext-small);
+  color: var(--color-black);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-blue);
 }
 
 .primaryButton,
@@ -43,6 +59,7 @@
   border-radius: 999px;
   font-size: var(--font-size-copytext-small);
   text-decoration: none;
+  border: none;
   transition:
     transform 0.15s ease,
     background 0.15s ease;
@@ -51,10 +68,36 @@
 .primaryButton {
   background: var(--color-blue);
   color: var(--color-white);
+  white-space: nowrap;
 }
 
-.primaryButton:hover {
+.primaryButton:hover:not(:disabled) {
   transform: translateY(-2px);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  color: #a5271c;
+  font-size: var(--font-size-copytext-small);
+  margin-top: 0.6rem;
+}
+
+.formHint {
+  color: var(--color-grey);
+  font-size: var(--font-size-copytext-small);
+  margin-top: 0.6rem;
+  max-width: 32rem;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1);
+  margin-top: var(--spacing-3);
 }
 
 .secondaryButton {
@@ -71,19 +114,6 @@
   padding: var(--spacing-6) 0;
 }
 
-.sectionDark {
-  background: var(--color-black);
-  color: var(--color-cream);
-}
-
-.sectionDark .pipelineStep h3 {
-  color: var(--color-white);
-}
-
-.sectionDark .pipelineN {
-  color: #6b8cff;
-}
-
 .sectionLabel {
   display: block;
   color: var(--color-blue);
@@ -91,68 +121,10 @@
   margin-bottom: var(--spacing-1);
 }
 
-.sectionDark .sectionLabel {
-  color: #6b8cff;
-}
-
 .sectionTitle {
   font-size: var(--font-size-m);
   margin-bottom: var(--spacing-4);
   max-width: 32rem;
-}
-
-.lawGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-2);
-}
-
-.lawCard {
-  background: var(--color-white);
-  border: 1px solid var(--color-grey-light);
-  border-radius: 1.25rem;
-  padding: var(--spacing-3);
-}
-
-.lawCard h3 {
-  font-size: var(--font-size-xs);
-  margin-bottom: var(--spacing-1);
-}
-
-.lawCard p {
-  color: var(--color-dark-grey);
-}
-
-.lawCard em {
-  font-style: normal;
-  color: var(--color-black);
-  font-weight: 500;
-}
-
-.pipeline {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-3) var(--spacing-2);
-}
-
-.pipelineStep {
-  border-top: 1px solid #3a3a38;
-  padding-top: var(--spacing-1);
-}
-
-.pipelineN {
-  color: var(--color-grey);
-  font-size: var(--font-size-copytext-small);
-}
-
-.pipelineStep h3 {
-  font-size: var(--font-size-xs);
-  margin: var(--spacing-05) 0 var(--spacing-05);
-}
-
-.pipelineStep p {
-  color: #b8b8b3;
-  font-size: var(--font-size-copytext-small);
 }
 
 .statGrid {
@@ -199,9 +171,13 @@
   text-decoration: underline;
 }
 
+@media (max-width: 640px) {
+  .form {
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 900px) {
-  .lawGrid,
-  .pipeline,
   .statGrid {
     grid-template-columns: 1fr;
   }

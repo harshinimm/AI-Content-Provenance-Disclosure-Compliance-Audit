@@ -100,6 +100,32 @@ validation; and it's licensed PolyForm Noncommercial (fine for this
 project, blocks commercial reuse). You can bypass it with a manually
 verified result instead: `synthid.check(path, manual_override=True/False)`.
 
+## Web UI
+
+A local web frontend (`web/`, Vite + React) lets you enter a URL in the
+browser and watch an audit run live, with image thumbnails per result —
+instead of using the CLI directly.
+
+```bash
+# terminal 1 — the API server (wraps the same audit/ pipeline as the CLI)
+pip install -r requirements.txt
+uvicorn server:app --port 8000
+
+# terminal 2 — the frontend
+cd web
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 — Overview has the URL input, Results shows
+per-image output (live for a real run, or a bundled example from
+elevenlabs.io if you just browse to `/results` directly), Info has the
+legal/methodology writeup.
+
+**Local-only, not for public deployment** — `server.py` has no auth or
+rate limiting and shells out to scrape whatever URL it's given (an
+SSRF-shaped risk if exposed). Keep it bound to localhost.
+
 ## Making env vars persistent
 
 The exports above only last for one terminal session. To make them
@@ -129,6 +155,8 @@ audit/
   transforms.py  # screenshot/recompress/crop/resize battery
   verdict.py     # Article 50(2) / SB 942 / IP-flag legal encoding
 audit.py         # CLI entrypoint
+server.py        # local API server wrapping audit/ for the web frontend (see Web UI)
+web/             # Vite + React frontend: URL input, live results with image thumbnails, methodology page
 test_images/     # your self-generated images, one subfolder per tool (gitignored)
 data/diffusion_forensics/  # DiffusionForensics dataset for DIRE (gitignored)
 ```

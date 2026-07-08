@@ -26,6 +26,14 @@ export function Nav() {
           >
             Results
           </Link>
+          <Link
+            to="/info"
+            className={
+              location.pathname === "/info" ? styles.active : undefined
+            }
+          >
+            Info
+          </Link>
           <a
             href="https://github.com/harshinimm/AI-Content-Provenance-Disclosure-Compliance-Audit"
             target="_blank"

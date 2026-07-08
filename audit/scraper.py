@@ -22,7 +22,6 @@ from PIL import Image
 USER_AGENT = "ai-content-provenance-audit/0.1 (research tool; see README)"
 REQUEST_DELAY_SECONDS = 0.5
 TIMEOUT_SECONDS = 10
-IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 
 @dataclass
@@ -114,9 +113,15 @@ def _download_image(
         return None
     seen_hashes.add(content_hash)
 
-    ext = _sniff_extension(resp.content) or Path(urlparse.urlparse(image_url).path).suffix.lower()
-    if ext not in IMAGE_EXTENSIONS:
-        ext = ".jpg"
+    ext = _sniff_extension(resp.content)
+    if ext is None:
+        # PIL couldn't identify this as a real raster image at all — most
+        # often an SVG (vector, not raster; Pillow can't open it) or an
+        # HTML error page served at what looked like an image URL. Don't
+        # guess an extension and save it anyway: downstream tools (Pillow's
+        # transform battery, DIRE, SynthID) all assume a real bitmap and
+        # crash opaquely on whatever this actually is.
+        return None
     local_path = output_dir / f"scraped_{index:04d}{ext}"
     local_path.write_bytes(resp.content)
     return local_path

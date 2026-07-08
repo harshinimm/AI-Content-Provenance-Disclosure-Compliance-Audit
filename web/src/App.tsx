@@ -2,8 +2,9 @@ import { Route, Routes } from "react-router-dom";
 import { Nav } from "./components/Nav";
 import { Footer } from "./components/Footer";
 import { useLenis } from "./lib/useLenis";
-import { Landing } from "./pages/Landing";
+import { Overview } from "./pages/Overview";
 import { Results } from "./pages/Results";
+import { Info } from "./pages/Info";
 
 function App() {
   useLenis();
@@ -12,8 +13,9 @@ function App() {
     <>
       <Nav />
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Overview />} />
         <Route path="/results" element={<Results />} />
+        <Route path="/info" element={<Info />} />
       </Routes>
       <Footer />
     </>
