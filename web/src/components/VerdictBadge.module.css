@@ -1,0 +1,30 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: var(--font-size-copytext-small);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.compliant {
+  background: #e3f1e6;
+  color: #1c6b34;
+}
+
+.gap {
+  background: #fbeec9;
+  color: #8a5a00;
+}
+
+.noncompliant {
+  background: #fbe4e2;
+  color: #a5271c;
+}
+
+.na {
+  background: var(--color-whitesmoke);
+  color: var(--color-grey);
+}

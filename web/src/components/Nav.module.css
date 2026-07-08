@@ -1,0 +1,59 @@
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(245, 247, 242, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-grey-light);
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 4.5rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--color-black);
+  font-size: var(--font-size-copytext-small);
+}
+
+.logoMark {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-blue);
+  flex-shrink: 0;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-copytext-small);
+}
+
+.links a {
+  text-decoration: none;
+  color: var(--color-grey);
+  transition: color 0.15s ease;
+}
+
+.links a:hover {
+  color: var(--color-black);
+}
+
+.links a.active {
+  color: var(--color-blue);
+}
+
+@media (max-width: 640px) {
+  .links {
+    gap: var(--spacing-1);
+  }
+}

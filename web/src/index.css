@@ -1,0 +1,106 @@
+@import url("https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  --color-blue: #002bba;
+  --color-black: #1e1e1e;
+  --color-cream: #f5f7f2;
+  --color-whitesmoke: #fbfbfb;
+  --color-white: #fff;
+  --color-dark-grey: #272726;
+  --color-grey: #8b8b8b;
+  --color-grey-light: #d8d8d3;
+
+  --font-display: "General Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Azeret Mono", "JetBrains Mono", monospace;
+
+  --font-size-l: 64px;
+  --font-size-m: 48px;
+  --font-size-s: 32px;
+  --font-size-xs: 24px;
+  --font-size-copytext: 18px;
+  --font-size-copytext-small: 16px;
+
+  --spacing-025: 0.25rem;
+  --spacing-05: 0.5rem;
+  --spacing-1: 1rem;
+  --spacing-2: 2rem;
+  --spacing-3: 3rem;
+  --spacing-4: 4rem;
+  --spacing-5: 5rem;
+  --spacing-6: 6rem;
+  --spacing-7: 7rem;
+  --spacing-8: 8rem;
+
+  --max-width: 75rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-black);
+  font-family: var(--font-display);
+  font-size: var(--font-size-copytext);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--spacing-2);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --font-size-l: 40px;
+    --font-size-m: 32px;
+    --font-size-s: 24px;
+    --font-size-xs: 20px;
+  }
+
+  .container {
+    padding: 0 var(--spacing-1);
+  }
+}

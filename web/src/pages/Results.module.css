@@ -1,0 +1,98 @@
+.page {
+  padding: var(--spacing-4) 0 var(--spacing-6);
+}
+
+.header {
+  max-width: 40rem;
+  margin-bottom: var(--spacing-3);
+}
+
+.header > span {
+  color: var(--color-blue);
+  font-size: var(--font-size-copytext-small);
+}
+
+.header h1 {
+  font-size: var(--font-size-m);
+  margin: var(--spacing-1) 0;
+}
+
+.header p {
+  color: var(--color-dark-grey);
+}
+
+.header code {
+  font-family: var(--font-mono);
+  background: var(--color-whitesmoke);
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  font-size: 0.9em;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: var(--spacing-2);
+}
+
+.filterButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--color-white);
+  border: 1px solid var(--color-grey-light);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font-size: var(--font-size-copytext-small);
+  color: var(--color-dark-grey);
+}
+
+.filterActive {
+  background: var(--color-black);
+  border-color: var(--color-black);
+  color: var(--color-white);
+}
+
+.filterCount {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-grey-light);
+  border-radius: 1rem;
+  background: var(--color-white);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-copytext-small);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-grey-light);
+}
+
+.table th {
+  color: var(--color-grey);
+  font-weight: 500;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--color-whitesmoke);
+}
