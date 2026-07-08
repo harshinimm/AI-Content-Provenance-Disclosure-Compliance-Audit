@@ -46,7 +46,10 @@ def crop(src: Path, border_fraction: float = CROP_BORDER_FRACTION) -> Path:
     with Image.open(src) as img:
         w, h = img.size
         dx, dy = int(w * border_fraction), int(h * border_fraction)
-        img.crop((dx, dy, w - dx, h - dy)).save(out)
+        # convert first — palette/P-mode source images (common for scraped
+        # PNGs) can't be saved as JPEG directly, and out's extension is
+        # inherited from src regardless of the source's actual mode
+        img.convert("RGB").crop((dx, dy, w - dx, h - dy)).save(out)
     return out
 
 
@@ -54,7 +57,9 @@ def resize(src: Path, downscale_factor: float = RESIZE_DOWNSCALE_FACTOR) -> Path
     out = _variant_path(src, "resize")
     with Image.open(src) as img:
         w, h = img.size
-        small = img.resize((max(1, int(w * downscale_factor)), max(1, int(h * downscale_factor))), Image.LANCZOS)
+        small = img.convert("RGB").resize(
+            (max(1, int(w * downscale_factor)), max(1, int(h * downscale_factor))), Image.LANCZOS
+        )
         small.resize((w, h), Image.LANCZOS).save(out)
     return out
 

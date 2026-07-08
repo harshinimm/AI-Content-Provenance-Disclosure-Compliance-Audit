@@ -8,6 +8,7 @@ crawl only, per the project guide's scope.
 from __future__ import annotations
 
 import hashlib
+import io
 import time
 import urllib.parse as urlparse
 import urllib.robotparser as robotparser
@@ -16,6 +17,7 @@ from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+from PIL import Image
 
 USER_AGENT = "ai-content-provenance-audit/0.1 (research tool; see README)"
 REQUEST_DELAY_SECONDS = 0.5
@@ -112,12 +114,28 @@ def _download_image(
         return None
     seen_hashes.add(content_hash)
 
-    ext = Path(urlparse.urlparse(image_url).path).suffix.lower()
+    ext = _sniff_extension(resp.content) or Path(urlparse.urlparse(image_url).path).suffix.lower()
     if ext not in IMAGE_EXTENSIONS:
         ext = ".jpg"
     local_path = output_dir / f"scraped_{index:04d}{ext}"
     local_path.write_bytes(resp.content)
     return local_path
+
+
+def _sniff_extension(content: bytes) -> str | None:
+    """Determine the real file extension from content, not the URL — image
+    optimization proxies (Next.js /_next/image, etc.) often have no usable
+    extension in the path at all, and whatever's there can be misleading
+    (e.g. a .jpg-looking URL actually serving a palette-mode PNG), which
+    downstream tools that trust the extension (like Pillow's save()) choke
+    on.
+    """
+    try:
+        with Image.open(io.BytesIO(content)) as img:
+            fmt = (img.format or "").lower()
+    except Exception:
+        return None
+    return {"jpeg": ".jpg", "png": ".png", "webp": ".webp", "gif": ".gif"}.get(fmt)
 
 
 def scrape_images(

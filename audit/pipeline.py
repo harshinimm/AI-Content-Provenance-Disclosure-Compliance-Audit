@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import c2pa, dire, synthid, transforms
-from .synthid import METHOD_UNOFFICIAL
+from .synthid import METHOD_UNCONFIGURED, METHOD_UNOFFICIAL
 from .verdict import SignalSurvival, article50_verdict, ip_flag, sb942_verdict
 
 
@@ -101,11 +101,25 @@ def run_image(
     # Step 4 — re-run checks on every variant; "post" signal only counts as
     # surviving if it survives ALL transforms, per the guide's robustness bar
     c2pa_post_all = True
+    synthid_post_all = True
+    synthid_post_scores: list[float] = []
+    synthid_post_methods: set[str] = set()
+    synthid_post_had_result = False
     dire_post_scores: list[float] = []
     dire_post_any_generated = False
     for name, variant_path in variants.items():
         c2pa_variant = c2pa.check(variant_path)
         c2pa_post_all = c2pa_post_all and c2pa_variant.present
+
+        synthid_variant = synthid.check(str(variant_path), manual_override=synthid_post_manual)
+        if synthid_variant.notes:
+            notes.append(f"SynthID post-check ({name}): {synthid_variant.notes}")
+        synthid_post_methods.add(synthid_variant.method)
+        if synthid_variant.detected is not None:
+            synthid_post_had_result = True
+            synthid_post_all = synthid_post_all and synthid_variant.detected
+        if synthid_variant.score is not None:
+            synthid_post_scores.append(synthid_variant.score)
 
         dire_variant = dire.check(variant_path)
         if dire_variant.reconstruction_error is not None:
@@ -113,12 +127,12 @@ def run_image(
         if dire_variant.is_generated:
             dire_post_any_generated = True
 
-    synthid_post_result = synthid.check(
-        str(next(iter(variants.values()))), manual_override=synthid_post_manual
+    synthid_post_detected = synthid_post_all if synthid_post_had_result else None
+    synthid_post_method = ", ".join(sorted(synthid_post_methods)) if synthid_post_methods else METHOD_UNCONFIGURED
+    synthid_post_score = (
+        sum(synthid_post_scores) / len(synthid_post_scores) if synthid_post_scores else None
     )
-    if synthid_post_result.notes:
-        notes.append(f"SynthID post-check: {synthid_post_result.notes}")
-    if synthid_post_result.method == METHOD_UNOFFICIAL:
+    if METHOD_UNOFFICIAL in synthid_post_methods:
         notes.append(
             "SynthID post-check used an unofficial community-detector estimate "
             "(trained on GPT-Image-2 only) — not Google's own verification"
@@ -127,7 +141,7 @@ def run_image(
     c2pa_survival = SignalSurvival(pre=c2pa_pre_result.present, post_all=c2pa_post_all)
     synthid_survival = SignalSurvival(
         pre=bool(synthid_pre_result.detected),
-        post_all=bool(synthid_post_result.detected),
+        post_all=bool(synthid_post_detected),
     )
 
     a50 = article50_verdict(c2pa_survival, synthid_survival, dire_flags_post=dire_post_any_generated)
@@ -144,11 +158,11 @@ def run_image(
         c2pa_pre=c2pa_pre_result.present,
         c2pa_post=c2pa_post_all,
         synthid_pre=synthid_pre_result.detected,
-        synthid_post=synthid_post_result.detected,
+        synthid_post=synthid_post_detected,
         synthid_pre_method=synthid_pre_result.method,
-        synthid_post_method=synthid_post_result.method,
+        synthid_post_method=synthid_post_method,
         synthid_pre_score=synthid_pre_result.score,
-        synthid_post_score=synthid_post_result.score,
+        synthid_post_score=synthid_post_score,
         dire_pre=dire_pre_result.reconstruction_error,
         dire_post=sum(dire_post_scores) / len(dire_post_scores) if dire_post_scores else None,
         article50_verdict=a50,
