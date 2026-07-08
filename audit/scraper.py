@@ -7,6 +7,7 @@ crawl only, per the project guide's scope.
 """
 from __future__ import annotations
 
+import hashlib
 import time
 import urllib.parse as urlparse
 import urllib.robotparser as robotparser
@@ -41,20 +42,29 @@ def _load_robots(base_url: str, session: requests.Session) -> robotparser.RobotF
     return rp
 
 
+def _add_image_url(urls: set[str], page_url: str, raw: str) -> None:
+    # data: URIs (e.g. Next.js blur-placeholder SVGs) aren't real fetchable
+    # images — resolving one through urljoin just returns it unchanged
+    # since it has its own scheme, so filter before that happens.
+    if raw.startswith("data:"):
+        return
+    urls.add(urlparse.urljoin(page_url, raw))
+
+
 def _extract_image_urls(html: str, page_url: str) -> set[str]:
     soup = BeautifulSoup(html, "html.parser")
     urls: set[str] = set()
 
     for img in soup.find_all("img"):
         src = img.get("src") or img.get("data-src")
-        if src:
-            urls.add(urlparse.urljoin(page_url, src))
+        if isinstance(src, str):
+            _add_image_url(urls, page_url, src)
         srcset = img.get("srcset") or img.get("data-srcset")
-        if srcset:
+        if isinstance(srcset, str):
             for candidate in srcset.split(","):
                 url = candidate.strip().split(" ")[0]
                 if url:
-                    urls.add(urlparse.urljoin(page_url, url))
+                    _add_image_url(urls, page_url, url)
 
     for tag in soup.find_all(style=True):
         style_attr = tag.get("style")
@@ -64,7 +74,7 @@ def _extract_image_urls(html: str, page_url: str) -> set[str]:
                 end = style_attr.find(")", start)
                 raw = style_attr[start + 4 : end].strip("'\"")
                 if raw:
-                    urls.add(urlparse.urljoin(page_url, raw))
+                    _add_image_url(urls, page_url, raw)
 
     return urls
 
@@ -80,12 +90,28 @@ def _extract_page_links(html: str, page_url: str, domain: str) -> set[str]:
     return links
 
 
-def _download_image(session: requests.Session, image_url: str, output_dir: Path, index: int) -> Path | None:
+def _download_image(
+    session: requests.Session,
+    image_url: str,
+    output_dir: Path,
+    index: int,
+    seen_hashes: set[str],
+) -> Path | None:
     try:
         resp = session.get(image_url, timeout=TIMEOUT_SECONDS)
         resp.raise_for_status()
     except requests.RequestException:
         return None
+
+    # Image-optimization proxies (Next.js /_next/image, Cloudinary, imgix,
+    # ...) serve the same underlying photo at many URLs (different sizes/
+    # query params) — dedupe by content hash rather than URL so those don't
+    # get treated as distinct images.
+    content_hash = hashlib.sha256(resp.content).hexdigest()
+    if content_hash in seen_hashes:
+        return None
+    seen_hashes.add(content_hash)
+
     ext = Path(urlparse.urlparse(image_url).path).suffix.lower()
     if ext not in IMAGE_EXTENSIONS:
         ext = ".jpg"
@@ -113,6 +139,7 @@ def scrape_images(
     seen_pages = {base_url}
     queue = [base_url]
     seen_image_urls: set[str] = set()
+    seen_hashes: set[str] = set()
     results: list[ScrapedImage] = []
 
     while queue and len(seen_pages) <= max_pages and len(results) < max_images:
@@ -133,7 +160,7 @@ def scrape_images(
             seen_image_urls.add(image_url)
             if not robots.can_fetch(USER_AGENT, image_url):
                 continue
-            local_path = _download_image(session, image_url, output_dir, len(results))
+            local_path = _download_image(session, image_url, output_dir, len(results), seen_hashes)
             time.sleep(REQUEST_DELAY_SECONDS)
             if local_path:
                 results.append(ScrapedImage(image_url=image_url, page_url=page_url, local_path=local_path))
