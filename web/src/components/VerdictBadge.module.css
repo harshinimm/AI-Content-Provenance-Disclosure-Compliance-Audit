@@ -1,12 +1,22 @@
 .badge {
   display: inline-flex;
   align-items: center;
+  gap: 0.4rem;
   padding: 0.3rem 0.75rem;
   border-radius: 999px;
   font-size: var(--font-size-copytext-small);
   font-family: var(--font-mono);
   white-space: nowrap;
   cursor: default;
+}
+
+.law {
+  opacity: 0.65;
+  font-size: 0.85em;
+}
+
+.law::after {
+  content: ":";
 }
 
 .compliant {

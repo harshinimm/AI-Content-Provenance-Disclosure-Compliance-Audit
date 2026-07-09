@@ -22,6 +22,21 @@ export interface AuditJob {
   error: string | null;
 }
 
+export interface AuditSummary {
+  id: string;
+  url: string;
+  status: AuditJob["status"];
+  total: number;
+  completed: number;
+  startedAt: string | null;
+}
+
+export async function listAudits(): Promise<AuditSummary[]> {
+  const res = await fetch(`${API_BASE}/api/audits`);
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  return res.json();
+}
+
 export async function startAudit(
   url: string,
   maxPages: number,

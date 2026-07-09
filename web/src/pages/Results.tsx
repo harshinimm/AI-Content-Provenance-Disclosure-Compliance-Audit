@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
 import { VerdictBadge } from "../components/VerdictBadge";
-import { getAudit, imageUrl, type AuditJob } from "../lib/api";
+import {
+  getAudit,
+  imageUrl,
+  listAudits,
+  type AuditJob,
+  type AuditSummary,
+} from "../lib/api";
 import {
   shortSource,
   verdictTone,
@@ -10,6 +16,19 @@ import {
   type VerdictTone,
 } from "../lib/types";
 import styles from "./Results.module.css";
+
+const EXAMPLE_VALUE = "__example__";
+
+function summaryLabel(a: AuditSummary): string {
+  const host = a.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const progress =
+    a.status === "done"
+      ? `${a.completed}/${a.total} done`
+      : a.status === "error"
+        ? "error"
+        : `${a.completed}/${a.total || "?"} running…`;
+  return `${host} — ${progress}`;
+}
 
 const FILTERS: { label: string; tone: VerdictTone | "all" }[] = [
   { label: "All", tone: "all" },
@@ -36,6 +55,7 @@ function jobRowToResultRow(row: AuditJob["rows"][number]): ResultRow & {
 }
 
 export function Results() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const jobId = searchParams.get("job");
 
@@ -46,7 +66,19 @@ export function Results() {
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<VerdictTone | "all">("all");
+  const [audits, setAudits] = useState<AuditSummary[]>([]);
   const pollRef = useRef<number | null>(null);
+
+  // Every past (and in-progress) run, for the "which company" dropdown —
+  // refetched whenever the selected job finishes, so a freshly-completed
+  // run's final counts show up without needing a manual page reload.
+  useEffect(() => {
+    listAudits()
+      .then(setAudits)
+      .catch(() => {
+        /* dropdown just stays empty except the bundled example — non-fatal */
+      });
+  }, [jobId, job?.status]);
 
   // Static example dataset — no job param, no live backend needed.
   useEffect(() => {
@@ -132,6 +164,14 @@ export function Results() {
   const isLive = Boolean(jobId);
   const isRunning = job && job.status !== "done" && job.status !== "error";
 
+  function handlePick(value: string) {
+    if (value === EXAMPLE_VALUE) {
+      navigate("/results");
+    } else {
+      navigate(`/results?job=${value}`);
+    }
+  }
+
   return (
     <main className={`container ${styles.page}`}>
       <header className={styles.header}>
@@ -139,6 +179,22 @@ export function Results() {
         <h1>
           {isLive ? "Live audit run" : "Example: elevenlabs.io"}
         </h1>
+
+        {audits.length > 0 && (
+          <select
+            className={styles.picker}
+            value={jobId ?? EXAMPLE_VALUE}
+            onChange={(e) => handlePick(e.target.value)}
+          >
+            <option value={EXAMPLE_VALUE}>Example: elevenlabs.io</option>
+            {audits.map((a) => (
+              <option key={a.id} value={a.id}>
+                {summaryLabel(a)}
+              </option>
+            ))}
+          </select>
+        )}
+
         <p>
           {isLive ? (
             job ? (
@@ -232,8 +288,8 @@ export function Results() {
                     {shortSource(row.source)}
                   </p>
                   <div className={styles.badgeRow}>
-                    <VerdictBadge verdict={row.article50} />
-                    <VerdictBadge verdict={row.sb942} />
+                    <VerdictBadge verdict={row.article50} law="EU Art. 50" />
+                    <VerdictBadge verdict={row.sb942} law="CA SB 942" />
                   </div>
                   <dl className={styles.cardMeta}>
                     <dt>C2PA</dt>
