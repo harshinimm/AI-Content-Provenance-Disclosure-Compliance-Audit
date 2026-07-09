@@ -11,6 +11,7 @@ import {
 } from "../lib/api";
 import {
   formatDire,
+  parseIpFlags,
   shortSource,
   verdictTone,
   type ResultRow,
@@ -317,7 +318,27 @@ export function Results() {
                       })()}
                     </dd>
                     <dt>IP flag</dt>
-                    <dd>{row.ipFlag}</dd>
+                    <dd>
+                      {(() => {
+                        const flags = parseIpFlags(row.ipFlag);
+                        if (flags.length === 0) {
+                          return <span className={styles.ipNone}>None</span>;
+                        }
+                        return (
+                          <div className={styles.ipFlags}>
+                            {flags.map((f) => (
+                              <span
+                                key={f.label}
+                                className={styles.ipChip}
+                                title={f.explanation}
+                              >
+                                {f.label}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </dd>
                   </dl>
                 </div>
               </article>

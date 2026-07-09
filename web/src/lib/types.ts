@@ -40,3 +40,26 @@ export function formatDire(dire: string): DireSummary {
   };
   return { preLabel: label(preRaw), postLabel: label(postRaw), raw: dire };
 }
+
+export interface IPFlagChip {
+  label: string;
+  explanation: string;
+}
+
+const IP_FLAG_EXPLANATIONS: Record<string, string> = {
+  "Copyrightability Risk":
+    "This image has no C2PA authorship/rights metadata at all, on a site assumed to claim copyright over its content. Purely AI-generated content without meaningful human authorship may not be copyrightable in several jurisdictions (e.g. US Copyright Office guidance) — so that copyright claim may not actually hold for this image.",
+  "Lost Attribution Chain":
+    "This image did carry C2PA rights/licensing metadata before the transform battery (screenshot/recompress/crop/resize), but it didn't survive. Even when rights metadata is embedded correctly, ordinary image handling can strip it.",
+};
+
+export function parseIpFlags(ipFlag: string): IPFlagChip[] {
+  if (!ipFlag || ipFlag === "None") return [];
+  return ipFlag.split(";").map((raw) => {
+    const label = raw.trim();
+    return {
+      label,
+      explanation: IP_FLAG_EXPLANATIONS[label] ?? label,
+    };
+  });
+}

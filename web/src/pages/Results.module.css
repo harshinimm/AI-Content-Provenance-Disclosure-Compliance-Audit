@@ -174,3 +174,25 @@
   color: var(--color-grey);
   margin-top: 0.2rem;
 }
+
+.ipNone {
+  color: var(--color-grey);
+}
+
+.ipFlags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ipChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: #fdf0e0;
+  color: #8a5200;
+  font-size: 0.85em;
+  cursor: help;
+  border-bottom: 1px dotted currentColor;
+}
