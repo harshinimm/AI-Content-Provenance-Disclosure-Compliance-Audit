@@ -139,5 +139,5 @@
 .cardMeta dd {
   margin: 0;
   color: var(--color-dark-grey);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
