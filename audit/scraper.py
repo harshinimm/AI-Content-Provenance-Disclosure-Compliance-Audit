@@ -22,6 +22,10 @@ from PIL import Image
 USER_AGENT = "ai-content-provenance-audit/0.1 (research tool; see README)"
 REQUEST_DELAY_SECONDS = 0.5
 TIMEOUT_SECONDS = 10
+# Icons, favicons, flag/partner-logo assets are almost always well under
+# this on both dimensions; real marketing/content photos almost always
+# aren't. A simple, site-agnostic proxy for "this is a logo, not a photo."
+MIN_IMAGE_DIMENSION = 150
 
 
 @dataclass
@@ -113,8 +117,8 @@ def _download_image(
         return None
     seen_hashes.add(content_hash)
 
-    ext = _sniff_extension(resp.content)
-    if ext is None:
+    inspected = _inspect_image(resp.content)
+    if inspected is None:
         # PIL couldn't identify this as a real raster image at all — most
         # often an SVG (vector, not raster; Pillow can't open it) or an
         # HTML error page served at what looked like an image URL. Don't
@@ -122,25 +126,36 @@ def _download_image(
         # transform battery, DIRE, SynthID) all assume a real bitmap and
         # crash opaquely on whatever this actually is.
         return None
+    ext, width, height = inspected
+    if width < MIN_IMAGE_DIMENSION or height < MIN_IMAGE_DIMENSION:
+        # Icon/favicon/partner-logo-sized — not the kind of content image
+        # this audit cares about, and DIRE/SynthID checks on a 44x44 icon
+        # aren't meaningful anyway.
+        return None
     local_path = output_dir / f"scraped_{index:04d}{ext}"
     local_path.write_bytes(resp.content)
     return local_path
 
 
-def _sniff_extension(content: bytes) -> str | None:
-    """Determine the real file extension from content, not the URL — image
-    optimization proxies (Next.js /_next/image, etc.) often have no usable
-    extension in the path at all, and whatever's there can be misleading
-    (e.g. a .jpg-looking URL actually serving a palette-mode PNG), which
-    downstream tools that trust the extension (like Pillow's save()) choke
-    on.
+def _inspect_image(content: bytes) -> tuple[str, int, int] | None:
+    """Identify the real format and pixel dimensions from content, not the
+    URL — image optimization proxies (Next.js /_next/image, etc.) often
+    have no usable extension in the path at all, and whatever's there can
+    be misleading (e.g. a .jpg-looking URL actually serving a
+    palette-mode PNG), which downstream tools that trust the extension
+    (like Pillow's save()) choke on. Returns None if Pillow can't open it
+    at all (SVG, HTML error page, etc.) — the caller drops those.
     """
     try:
         with Image.open(io.BytesIO(content)) as img:
             fmt = (img.format or "").lower()
+            width, height = img.size
     except Exception:
         return None
-    return {"jpeg": ".jpg", "png": ".png", "webp": ".webp", "gif": ".gif"}.get(fmt)
+    ext = {"jpeg": ".jpg", "png": ".png", "webp": ".webp", "gif": ".gif"}.get(fmt)
+    if ext is None:
+        return None
+    return ext, width, height
 
 
 def scrape_images(
