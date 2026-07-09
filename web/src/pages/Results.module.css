@@ -159,3 +159,18 @@
   color: var(--color-dark-grey);
   overflow-wrap: break-word;
 }
+
+.direToggle summary {
+  cursor: pointer;
+  color: var(--color-dark-grey);
+}
+
+.direToggle summary::marker {
+  color: var(--color-grey);
+}
+
+.direRaw {
+  display: block;
+  color: var(--color-grey);
+  margin-top: 0.2rem;
+}

@@ -21,3 +21,22 @@ export function verdictTone(verdict: string): VerdictTone {
 export function shortSource(source: string): string {
   return source.split(/[/\\]/).pop() ?? source;
 }
+
+export interface DireSummary {
+  preLabel: string;
+  postLabel: string;
+  raw: string;
+}
+
+// "0.9999/0.999725" -> AI-generated Yes/Yes, but keep the raw score
+// available behind a toggle for anyone who wants the actual number
+// rather than just the >0.5 threshold call.
+export function formatDire(dire: string): DireSummary {
+  const [preRaw, postRaw] = dire.split("/");
+  const label = (v: string) => {
+    const n = Number(v);
+    if (v === "None" || Number.isNaN(n)) return "N/A";
+    return n > 0.5 ? "AI-generated" : "Not AI-generated";
+  };
+  return { preLabel: label(preRaw), postLabel: label(postRaw), raw: dire };
+}

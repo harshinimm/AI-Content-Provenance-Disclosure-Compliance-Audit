@@ -10,6 +10,7 @@ import {
   type AuditSummary,
 } from "../lib/api";
 import {
+  formatDire,
   shortSource,
   verdictTone,
   type ResultRow,
@@ -297,7 +298,24 @@ export function Results() {
                     <dt>SynthID</dt>
                     <dd className="mono">{row.synthid}</dd>
                     <dt>DIRE</dt>
-                    <dd className="mono">{row.dire}</dd>
+                    <dd className="mono">
+                      {(() => {
+                        const dire = formatDire(row.dire);
+                        return (
+                          <details className={styles.direToggle}>
+                            <summary>
+                              {dire.preLabel}
+                              {dire.postLabel !== dire.preLabel &&
+                                dire.postLabel !== "N/A" &&
+                                ` → ${dire.postLabel}`}
+                            </summary>
+                            <span className={styles.direRaw}>
+                              score: {dire.raw}
+                            </span>
+                          </details>
+                        );
+                      })()}
+                    </dd>
                     <dt>IP flag</dt>
                     <dd>{row.ipFlag}</dd>
                   </dl>
