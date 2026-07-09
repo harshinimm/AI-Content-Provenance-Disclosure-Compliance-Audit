@@ -4,9 +4,14 @@ import { Reveal } from "../components/Reveal";
 import { startAudit } from "../lib/api";
 import styles from "./Overview.module.css";
 
+const DEFAULT_MAX_PAGES = 8;
+const DEFAULT_MAX_IMAGES = 12;
+
 export function Overview() {
   const navigate = useNavigate();
   const [url, setUrl] = useState("");
+  const [maxPages, setMaxPages] = useState(DEFAULT_MAX_PAGES);
+  const [maxImages, setMaxImages] = useState(DEFAULT_MAX_IMAGES);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +30,11 @@ export function Overview() {
 
     setSubmitting(true);
     try {
-      const { jobId } = await startAudit(target, 8, 12);
+      const { jobId } = await startAudit(
+        target,
+        Math.max(1, maxPages),
+        Math.max(1, maxImages),
+      );
       navigate(`/results?job=${jobId}`);
     } catch (err) {
       setError(
@@ -76,10 +85,41 @@ export function Overview() {
             </button>
           </form>
           {error && <p className={styles.error}>{error}</p>}
+
+          <details className={styles.advanced}>
+            <summary>Advanced options</summary>
+            <div className={styles.advancedFields}>
+              <label>
+                Max pages to crawl
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={maxPages}
+                  onChange={(e) => setMaxPages(Number(e.target.value))}
+                  disabled={submitting}
+                />
+              </label>
+              <label>
+                Max images to check
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={maxImages}
+                  onChange={(e) => setMaxImages(Number(e.target.value))}
+                  disabled={submitting}
+                />
+              </label>
+            </div>
+          </details>
+
           <p className={styles.formHint}>
-            Runs a small crawl (8 pages, 12 images) against the local API
-            server — takes a few minutes since each flagged image gets a
-            real DIRE + SynthID + C2PA check.
+            Runs a crawl ({maxPages} page{maxPages === 1 ? "" : "s"},{" "}
+            {maxImages} image{maxImages === 1 ? "" : "s"}) against the local
+            API server — takes a few minutes since each flagged image gets
+            a real DIRE + SynthID + C2PA check. Higher numbers take
+            proportionally longer.
           </p>
 
           <div className={styles.heroActions}>
