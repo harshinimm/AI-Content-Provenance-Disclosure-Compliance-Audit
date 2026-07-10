@@ -93,6 +93,25 @@
   max-width: 32rem;
 }
 
+.disclaimer {
+  margin-top: var(--spacing-2);
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--color-grey-light);
+  border-radius: 0.7rem;
+  background: var(--color-whitesmoke);
+  color: var(--color-grey);
+  font-size: var(--font-size-copytext-small);
+  max-width: 34rem;
+}
+
+.disclaimer strong {
+  color: var(--color-black);
+}
+
+.disclaimer a {
+  color: var(--color-blue);
+}
+
 .advanced {
   margin-top: 0.8rem;
   max-width: 32rem;

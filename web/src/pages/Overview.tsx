@@ -51,20 +51,22 @@ export function Overview() {
       <section className={styles.hero}>
         <div className={`container ${styles.heroInner}`}>
           <span className={`mono ${styles.eyebrow}`}>
-            provenance &amp; disclosure compliance audit
+            self-audit: AI disclosure compliance
           </span>
           <h1 className={styles.heroTitle}>
-            The law assumes AI disclosure marks survive.
+            Find out before a regulator does.
             <br />
-            <span className={styles.heroAccent}>Test that on any site.</span>
+            <span className={styles.heroAccent}>Check your own site.</span>
           </h1>
           <p className={styles.heroSub}>
             EU AI Act Article 50(2) and California SB 942 both require
             AI-generated images to carry machine-readable disclosure — and
-            for that disclosure to be robust, not incidental. Enter a
-            company's URL below to scrape it, triage which images are
-            likely AI-generated, and test whether their disclosure signals
-            survive a screenshot, a recompress, a crop, a resize.
+            for that disclosure to survive normal handling, not just exist
+            once at upload. Enter your site's URL to scrape it, triage
+            which images are likely AI-generated, and test whether your
+            disclosure signals actually survive a screenshot, a
+            recompress, a crop, a resize — with concrete next steps for
+            anything that doesn't.
           </p>
 
           <form className={styles.form} onSubmit={handleSubmit}>
@@ -130,6 +132,16 @@ export function Overview() {
               How it works
             </Link>
           </div>
+
+          <p className={styles.disclaimer}>
+            <strong>Not legal advice.</strong> Verdicts are an automated,
+            best-effort reading of Article 50(2)/SB 942 against signals this
+            tool can detect — several of which are explicitly unofficial
+            estimates (see <Link to="/info">Info</Link>). Treat results as a
+            starting point for your own review, not a compliance
+            determination. Talk to counsel before making representations
+            based on this output.
+          </p>
         </div>
       </section>
 
@@ -137,10 +149,10 @@ export function Overview() {
         <div className="container">
           <Reveal>
             <span className={`mono ${styles.sectionLabel}`}>
-              first findings
+              what a run looks like
             </span>
             <h2 className={styles.sectionTitle}>
-              What we found auditing elevenlabs.io
+              Example output from a real audit (elevenlabs.io)
             </h2>
           </Reveal>
           <div className={styles.statGrid}>

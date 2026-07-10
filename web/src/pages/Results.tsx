@@ -12,6 +12,7 @@ import {
 import {
   formatDire,
   parseIpFlags,
+  remediationFor,
   shortSource,
   verdictTone,
   type ResultRow,
@@ -293,6 +294,17 @@ export function Results() {
                     <VerdictBadge verdict={row.article50} law="EU Art. 50" />
                     <VerdictBadge verdict={row.sb942} law="CA SB 942" />
                   </div>
+                  {[
+                    ...new Set(
+                      [remediationFor(row.article50), remediationFor(row.sb942)].filter(
+                        (r): r is string => r !== null,
+                      ),
+                    ),
+                  ].map((tip) => (
+                    <p key={tip} className={styles.remediation}>
+                      <strong>What to do:</strong> {tip}
+                    </p>
+                  ))}
                   <dl className={styles.cardMeta}>
                     <dt>C2PA</dt>
                     <dd className="mono">{row.c2pa}</dd>

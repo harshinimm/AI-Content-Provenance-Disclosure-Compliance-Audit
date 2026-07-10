@@ -63,3 +63,15 @@ export function parseIpFlags(ipFlag: string): IPFlagChip[] {
     };
   });
 }
+
+const REMEDIATION: Record<VerdictTone, string | null> = {
+  compliant: null,
+  gap: "A disclosure signal was present but didn't survive your image pipeline (CDN recompression, cropping, resizing). Re-embed C2PA metadata after any processing step, not just at generation time, or use a watermarking method documented as robust to those specific transforms.",
+  noncompliant:
+    "No disclosure signal was detected at all. If this image is AI-generated, add a C2PA manifest (see contentauth.org for tooling) and/or a watermark at generation time — most modern generators (Adobe Firefly, OpenAI, Google) support this natively.",
+  na: null,
+};
+
+export function remediationFor(verdict: string): string | null {
+  return REMEDIATION[verdictTone(verdict)];
+}

@@ -136,6 +136,19 @@
   color: var(--color-grey);
 }
 
+.remediation {
+  font-size: var(--font-size-copytext-small);
+  color: var(--color-dark-grey);
+  background: var(--color-whitesmoke);
+  border-left: 3px solid #8a5200;
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.7rem;
+}
+
+.remediation strong {
+  color: var(--color-black);
+}
+
 .badgeRow {
   display: flex;
   flex-wrap: wrap;
