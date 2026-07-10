@@ -123,12 +123,18 @@ export function Info() {
                 Gemini-native images is unproven.
               </li>
               <li>
-                <strong>The DIRE triage gate is a practical substitute.</strong>{" "}
+                <strong>The DIRE triage gate is a practical substitute — and an imperfect one.</strong>{" "}
                 The paper's actual method needs a GPU/MPI pipeline and a
-                checkpoint that's only distributed via Baidu/RecDrive
-                (often unreachable outside China, and no accessible mirror
-                exists). This tool uses a general AI-vs-human image
-                classifier instead, honestly labeled as such.
+                checkpoint only distributed via Baidu/RecDrive (often
+                unreachable, no accessible mirror). This tool uses a
+                2-model classifier ensemble instead (both must agree an
+                image is AI-generated), chosen after benchmarking against
+                known-real and known-AI images: it cut false positives on
+                real photos from 2/5 to 1/5 wrong, but recall on known-AI
+                images dropped from 3/3 to 2/3. That's a real tradeoff —
+                general AI-image detection genuinely struggles to
+                generalize across real-world photo diversity and
+                generators at once right now.
               </li>
               <li>
                 <strong>Static-HTML crawl only.</strong> JS-rendered

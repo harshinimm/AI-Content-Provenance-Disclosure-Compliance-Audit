@@ -63,14 +63,37 @@ pretrained checkpoint only exists on Baidu/RecDrive — both often unreachable
 outside China (we hit this directly: neither loaded). No accessible mirror
 exists anywhere (checked HuggingFace, GitHub).
 
-**Default path — works with no setup at all:** `dire.py` uses
+**Default path — works with no setup at all:** `dire.py` runs a 2-model
+ensemble instead —
 [`Ateeqq/ai-vs-human-image-detector`](https://huggingface.co/Ateeqq/ai-vs-human-image-detector)
-instead, a general AI-vs-human image classifier (SigLIP, Apache-2.0, CPU-only,
-120k-image training set). It's honestly labeled in output/notes as a
-*"practical substitute for DIRE,"* not the paper's actual
-diffusion-reconstruction-error technique. Weights download automatically
-the first time you run the tool (~400MB, one-time, straight from
-HuggingFace over normal HTTPS — no Baidu involved).
+AND
+[`prithivMLmods/Deep-Fake-Detector-v2-Model`](https://huggingface.co/prithivMLmods/Deep-Fake-Detector-v2-Model),
+both must independently call an image AI-generated for it to flag. Neither
+is the paper's diffusion-reconstruction-error technique — honestly labeled
+in output/notes as a *"practical substitute for DIRE."* Weights download
+automatically on first use (~400-500MB each, one-time, over normal HTTPS —
+no Baidu involved).
+
+**Why an ensemble, and why AND-gated:** the single-model version had a real
+false-positive problem — real photos confidently (>99%) called
+AI-generated. Benchmarked against 5 known-real photos (Picsum/Unsplash) and
+3 freshly-generated known-AI images (Pollinations) before picking a fix:
+
+| Model | Real-photo accuracy | AI-image recall |
+|---|---|---|
+| Ateeqq alone | 3/5 | 3/3 |
+| dima806/ai_vs_real_image_detection | 0/5 (called *everything* fake) | 3/3 |
+| prithivMLmods alone | 1/5 (mostly ~55% coin-flip) | 1/3 |
+| umm-maybe/AI-image-detector | 5/5 | 0/3 (2022-era, blind to modern generators) |
+| **Ateeqq AND prithivMLmods (current)** | **4/5** | **2/3** |
+
+No single swap was strictly better — each traded the false-positive problem
+for a worse failure mode. The AND-gate is a genuine precision/recall
+tradeoff, not a free win: it cut false positives (2/5 → 1/5 wrong) at a
+real recall cost (3/3 → 2/3 known-AI images detected). Treat this as a
+documented limitation, not a solved problem — general AI-image detection
+genuinely struggles to generalize across real-world photo diversity and
+generators simultaneously right now.
 
 **If you do get the real DIRE checkpoint working** (e.g. from within China,
 or a VPN), `colab/dire_batch.ipynb` runs the actual paper method on Colab's
@@ -151,7 +174,7 @@ audit/
   pipeline.py    # per-image orchestration: DIRE triage gate -> checks -> transform battery -> re-check
   c2pa.py        # c2patool wrapper
   synthid.py     # SynthID detector wrapper (unofficial) + manual_override
-  dire.py        # local classifier by default (practical substitute); DIRE_RESULTS_CSV/DIRE_SCRIPT as alternates
+  dire.py        # AND-gated 2-model classifier ensemble by default (practical substitute); DIRE_RESULTS_CSV/DIRE_SCRIPT as alternates
   transforms.py  # screenshot/recompress/crop/resize battery
   verdict.py     # Article 50(2) / SB 942 / IP-flag legal encoding
 audit.py         # CLI entrypoint

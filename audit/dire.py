@@ -6,13 +6,26 @@ both often unreachable outside China. If you've gone through that anyway
 (via `colab/dire_batch.ipynb`), set DIRE_RESULTS_CSV and results are looked
 up by filename.
 
-Otherwise, the default path here is a practical substitute: a general
-AI-vs-human image classifier (`Ateeqq/ai-vs-human-image-detector` on
-HuggingFace, SigLIP-based, Apache-2.0, runs on CPU, no GPU/MPI/Baidu
-needed). It's not the paper's diffusion-reconstruction-error technique —
-same honest-substitute pattern as synthid.py's community detector. Weights
-download automatically on first use (~400MB, one-time, straight from
-HuggingFace over normal HTTPS).
+Otherwise, the default path here is a practical substitute: a 2-model
+ensemble of general AI-vs-human image classifiers (Ateeqq/ai-vs-human-
+image-detector + prithivMLmods/Deep-Fake-Detector-v2-Model, both on
+HuggingFace, Apache-2.0/openrail-family licensed, run on CPU, no GPU/MPI/
+Baidu needed). Neither is the paper's diffusion-reconstruction-error
+technique — same honest-substitute pattern as synthid.py's community
+detector. Weights download automatically on first use (~400-500MB each,
+one-time, straight from HuggingFace over normal HTTPS).
+
+Why an ensemble: Ateeqq alone had a real false-positive problem — real
+photos confidently (>99%) misclassified as AI-generated. Benchmarked
+against 5 known-real photos (public Unsplash/Picsum) and 3 freshly-
+generated known-AI images before picking a fix (see README for the full
+table); single-model swaps (dima806, umm-maybe, prithivMLmods alone) were
+each worse in some other way — one was biased toward calling everything
+fake, one was too outdated to recognize modern generators at all. An
+AND-gate (both models must independently call an image AI-generated) cut
+real-photo false positives from 2/5 to 1/5 in that test, at the cost of
+recall dropping from 3/3 to 2/3 known-AI images detected. That's a real
+tradeoff, not a free win — document it, don't oversell it.
 
 A live-subprocess path (DIRE_SCRIPT/DIRE_MODEL_PATH) is kept for a future
 GPU machine running the real DIRE repo, but is unverified — it assumes a
@@ -32,9 +45,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 METHOD_COLAB_DIRE = "DIRE (official, via colab/dire_batch.ipynb)"
-METHOD_LOCAL_CLASSIFIER = "general AI-vs-human image classifier (practical substitute for DIRE)"
+METHOD_LOCAL_CLASSIFIER = (
+    "2-model ensemble of general AI-vs-human image classifiers, AND-gated "
+    "(practical substitute for DIRE — see audit/dire.py for the benchmark "
+    "behind this choice)"
+)
 METHOD_LIVE_UNVERIFIED = "live DIRE subprocess (unverified path)"
 METHOD_UNCONFIGURED = "not configured"
+
+_MODEL_A = "Ateeqq/ai-vs-human-image-detector"
+_MODEL_A_LABEL = "ai"
+_MODEL_B = "prithivMLmods/Deep-Fake-Detector-v2-Model"
+_MODEL_B_LABEL = "Deepfake"
 
 
 @dataclass
@@ -59,41 +81,43 @@ def _load_results_csv(csv_path: str) -> dict[str, DIREResult]:
 
 
 @functools.lru_cache(maxsize=1)
-def _load_local_classifier():
-    """Lazily load the HuggingFace classifier once per process. Returns
-    None if transformers/torch aren't installed, so callers fall through
-    to the next path instead of crashing.
+def _load_local_classifiers():
+    """Lazily load both ensemble members once per process. Returns None if
+    transformers/torch aren't installed, so callers fall through to the
+    next path instead of crashing.
     """
     try:
-        from transformers import AutoImageProcessor, SiglipForImageClassification
+        from transformers import pipeline
     except ImportError:
         return None
-    processor = AutoImageProcessor.from_pretrained("Ateeqq/ai-vs-human-image-detector")
-    model = SiglipForImageClassification.from_pretrained("Ateeqq/ai-vs-human-image-detector")
-    model.eval()
-    return processor, model
+    return (
+        pipeline("image-classification", model=_MODEL_A),
+        pipeline("image-classification", model=_MODEL_B),
+    )
+
+
+def _label_prob(results: list[dict], label: str) -> float:
+    return next((r["score"] for r in results if r["label"] == label), 0.0)
 
 
 def _check_local_classifier(image_path: str | Path) -> DIREResult | None:
-    loaded = _load_local_classifier()
+    loaded = _load_local_classifiers()
     if loaded is None:
         return None
-    processor, model = loaded
-
-    import torch
-    from PIL import Image
+    clf_a, clf_b = loaded
 
     try:
-        img = Image.open(image_path).convert("RGB")
+        prob_a = _label_prob(clf_a(str(image_path)), _MODEL_A_LABEL)
+        prob_b = _label_prob(clf_b(str(image_path)), _MODEL_B_LABEL)
     except Exception as exc:
         return DIREResult(reconstruction_error=None, is_generated=None, error=str(exc), method=METHOD_LOCAL_CLASSIFIER)
 
-    inputs = processor(images=img, return_tensors="pt")
-    with torch.no_grad():
-        logits = model(**inputs).logits
-        probs = torch.softmax(logits, dim=-1)[0]
-    label_to_prob = {model.config.id2label[i]: p.item() for i, p in enumerate(probs)}
-    ai_prob = label_to_prob.get("ai", 0.0)
+    # AND-gate: both models must independently call it AI-generated. Cuts
+    # false positives (verified: 2/5 -> 1/5 on a real-photo benchmark) at
+    # a real recall cost (3/3 -> 2/3 on known-AI images) — see module
+    # docstring. min() reported as the score so is_generated = score>0.5
+    # exactly matches "both models agree."
+    ai_prob = min(prob_a, prob_b)
 
     return DIREResult(
         reconstruction_error=round(ai_prob, 4),
