@@ -1,0 +1,16 @@
+web/
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+DIRE/
+c2patool/
+gpt-image-synthid-detector/
+colab/
+data/
+test_images/
+output/
+.git/
+.gitignore
+*.md

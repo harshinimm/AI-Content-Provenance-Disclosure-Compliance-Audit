@@ -1,4 +1,6 @@
-const API_BASE = "http://localhost:8000";
+// VITE_API_BASE is set at build time (Vercel env var) to point at the
+// deployed backend; falls back to localhost for local dev.
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
 export interface AuditRow {
   source: string;

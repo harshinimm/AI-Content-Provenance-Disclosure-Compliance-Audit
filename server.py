@@ -1,24 +1,39 @@
-"""Local API server wrapping the audit pipeline for the web frontend.
+"""API server wrapping the audit pipeline for the web frontend.
 
-Run alongside the Vite dev server:
+Local dev:
     uvicorn server:app --reload --port 8000
 
-NOT meant for public deployment: no auth, no rate limiting, and it
-shells out to scrape whatever URL a caller supplies (SSRF-shaped risk).
-Keep this bound to localhost.
+Deployed (e.g. Railway): set ALLOWED_ORIGINS to your Vercel frontend's
+URL and JOBS_DIR to a mounted persistent volume — see README.
+
+Still no real auth — this is a personal-project deployment, not a
+multi-tenant SaaS. Two things are hardened regardless, since "scrape
+whatever URL a caller supplies" is a real SSRF vector the moment this
+is reachable from the public internet, not just a localhost caveat:
+  - _resolve_and_validate_host() blocks loopback/private/link-local
+    targets (including cloud metadata endpoints like 169.254.169.254)
+    before any scrape starts.
+  - A simple per-IP in-memory rate limit on POST /api/audits (audits
+    are expensive — real DIRE/SynthID/C2PA checks — so even a basic
+    limiter meaningfully raises the bar against casual abuse).
 """
 from __future__ import annotations
 
+import ipaddress
 import json
+import os
+import socket
 import threading
+import time
 import urllib.parse as urlparse
 import uuid
+from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -27,15 +42,47 @@ from audit.pipeline import ImageAuditRow, run_image
 from audit.scraper import scrape_images
 from audit.synthid import METHOD_UNOFFICIAL
 
-JOBS_DIR = Path("output/web_jobs")
+JOBS_DIR = Path(os.environ.get("JOBS_DIR", "output/web_jobs"))
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")]
 
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _resolve_and_validate_host(url: str) -> None:
+    """Reject scrape targets that resolve to loopback/private/link-local
+    addresses (SSRF guard). Raises HTTPException on rejection.
+    """
+    hostname = urlparse.urlparse(url).hostname
+    if not hostname:
+        raise HTTPException(400, "url has no hostname")
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as exc:
+        raise HTTPException(400, f"couldn't resolve host: {exc}") from exc
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise HTTPException(400, "url resolves to a private/internal address, not allowed")
+
+
+_RATE_LIMIT_WINDOW_SECONDS = 3600
+_RATE_LIMIT_MAX_REQUESTS = 10
+_rate_limit_log: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate_limit(client_ip: str) -> None:
+    now = time.time()
+    log = _rate_limit_log[client_ip]
+    log[:] = [t for t in log if now - t < _RATE_LIMIT_WINDOW_SECONDS]
+    if len(log) >= _RATE_LIMIT_MAX_REQUESTS:
+        raise HTTPException(429, "Too many audits from this IP — try again later.")
+    log.append(now)
 
 
 def _fmt_synthid(detected: bool | None, method: str) -> str:
@@ -159,9 +206,12 @@ def _run_job(job: JobState, max_pages: int, max_images: int) -> None:
 
 
 @app.post("/api/audits")
-def start_audit(req: StartAuditRequest) -> dict:
+def start_audit(req: StartAuditRequest, request: Request) -> dict:
     if not req.url.startswith(("http://", "https://")):
         raise HTTPException(400, "url must start with http:// or https://")
+
+    _check_rate_limit(request.client.host if request.client else "unknown")
+    _resolve_and_validate_host(req.url)
 
     job_id = uuid.uuid4().hex[:8]
     job = JobState(id=job_id, url=req.url)

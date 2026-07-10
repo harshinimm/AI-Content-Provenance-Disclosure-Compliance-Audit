@@ -145,9 +145,40 @@ per-image output (live for a real run, or a bundled example from
 elevenlabs.io if you just browse to `/results` directly), Info has the
 legal/methodology writeup.
 
-**Local-only, not for public deployment** — `server.py` has no auth or
-rate limiting and shells out to scrape whatever URL it's given (an
-SSRF-shaped risk if exposed). Keep it bound to localhost.
+### Deploying
+
+Split deploy: the frontend (`web/`) is a static Vite build that goes
+anywhere; the backend (`server.py`) needs a host that supports long-running
+processes and persistent disk — audits take minutes and rely on real
+DIRE/SynthID/C2PA subprocess calls, which rules out serverless platforms
+like Vercel's own functions (hard timeouts, ephemeral filesystem, no
+background threads once a request returns).
+
+**Backend (Railway, or any Docker host with persistent volumes):**
+1. Connect the repo, let it build the root `Dockerfile` (bakes in
+   `c2patool` and the SynthID detector at build time; DIRE's ensemble
+   weights download from HuggingFace on first request instead, to keep
+   the image smaller).
+2. Mount a persistent volume (e.g. at `/data`) and set `JOBS_DIR=/data/web_jobs`
+   — without this, job history and scraped images vanish on every redeploy.
+3. Set `ALLOWED_ORIGINS` to your Vercel frontend's URL (comma-separated if
+   more than one, e.g. preview + production URLs).
+4. Deploy, note the resulting public URL.
+
+**Frontend (Vercel):**
+1. Import the repo, set **Root Directory** to `web` (it's a subdirectory,
+   not the repo root).
+2. Set `VITE_API_BASE` to the backend's URL from above.
+3. Deploy.
+
+**Still no real auth** — this is sized for a personal project, not a
+multi-tenant SaaS. Two things are hardened regardless, since "scrape
+whatever URL a caller supplies" becomes a real SSRF vector the moment
+it's reachable from the public internet: `server.py` resolves and rejects
+loopback/private/link-local targets (including cloud metadata endpoints)
+before scraping, and a per-IP rate limit caps audits at 10/hour. Neither
+is a substitute for real auth if this ever needs to support untrusted
+users at scale.
 
 ## Making env vars persistent
 
