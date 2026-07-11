@@ -2,9 +2,18 @@
 
 ## 1. Objective
 
-Scrape a company's site, use DIRE to triage which images are likely AI-generated at scale (so only that flagged subset gets the expensive checks), then test whether those images carry legally-required disclosure signals (C2PA metadata, SynthID watermark) and whether those signals survive real-world transformations. Score the results against EU AI Act Article 50(2) and California SB 942, and flag related IP/copyright exposure.
+Scrape a company's site, triage which images are likely AI-generated at
+scale (so only that flagged subset gets the expensive checks), then test
+whether those images carry legally-required disclosure signals (C2PA
+metadata, SynthID watermark) and whether those signals survive real-world
+transformations. Score the results against EU AI Act Article 50(2) and
+California SB 942, and flag related IP/copyright exposure.
 
-**Deliverable:** a scored comparison table, a small CLI tool/repo, and a Substack-ready write-up.
+**Deliverable:** a CLI tool + web app (`web/`, backed by `server.py`) that
+runs this against any company's site, with a self-audit framing —
+"check your own site before a regulator does," not a tool for calling out
+other companies. A public write-up is optional, not required — the working
+tool is the deliverable now, not a blog post (see §9).
 
 ---
 
@@ -26,23 +35,29 @@ Scrape a company's site, use DIRE to triage which images are likely AI-generated
 - Effective **January 1, 2026** (already live).
 - Penalties: up to $5,000/day/violation, AG/city/county enforcement only.
 
+**Not legal advice** — verdicts are an automated, best-effort reading of
+these statutes against signals this tool can detect. See §6's caveats and
+the web app's Info page before anyone acts on output.
+
 ---
 
-## 3. Data sources (split by layer — don't use one dataset for everything)
+## 3. Data sources
 
-| Layer | Source | Sample size | Why |
-|---|---|---|---|
-| Primary audit target | A real company's site, pulled via `audit.py --url` ([`audit/scraper.py`](audit/scraper.py)) | Hundreds, unbounded | The actual subject of the audit — only the DIRE-flagged subset gets C2PA/SynthID/transform checks |
-| DIRE training/validation | **DiffusionForensics** benchmark dataset (public, 8 diffusion models, from the DIRE paper's GitHub repo) | Hundreds+ per model | Needs volume for a real statistical distribution; validates DIRE before trusting it on scraped, real-world-style images |
-| Manual spot-check / ground truth | Images **you generate** across 2–3 tools (e.g. Imagen/Gemini, DALL-E, Stable Diffusion) | 5–10 per tool | Known-positive cases to sanity-check DIRE's precision on production-style content, and to exercise the C2PA/SynthID layers (freshly-generated images carry live provenance metadata/watermarks that scraped images may have already lost) |
+| Layer | Source | Why |
+|---|---|---|
+| Primary audit target | A real (or your own) company's site, pulled via `audit.py --url` / the web app's Overview form ([`audit/scraper.py`](audit/scraper.py)) | The actual subject of the audit — only the triage-flagged subset gets C2PA/SynthID/transform checks |
+| Triage classifier ground truth | 5 known-real photos (Picsum/Unsplash) + 3 freshly-generated known-AI images (Pollinations) — independently sourced, not the tool's own opinions | Used once to benchmark and pick the current DIRE-gate classifier (see [`audit/dire.py`](audit/dire.py) and README) — not something you need to re-run per audit |
 
-Include **Stable Diffusion** as one of your 2–3 self-generation tools if possible — it's open, so it gives you the most accurate same-model DIRE comparison alongside the cross-model tests on DALL-E/Imagen.
+DiffusionForensics / the official DIRE paper method are **no longer part of
+this project** — see §4.3.
 
 ---
 
 ## 4. Tooling setup
 
-1. **c2patool** — CLI tool from the C2PA org, reads/verifies C2PA manifests. Install and confirm it runs on a sample image before touching your real set.
+1. **c2patool** — CLI tool from the C2PA org (now `contentauth/c2pa-rs`'s
+   `cli/` crate, the standalone repo is archived), reads/verifies C2PA
+   manifests. Works out of the box once `C2PATOOL_PATH` is set — see README.
 2. **SynthID verification** — Google's official [SynthID Detector](https://blog.google/innovation-and-ai/products/google-synthid-ai-content-detector/)
    portal exists but is a one-file-at-a-time web upload, currently waitlisted
    to journalists/researchers, with no public API — can't be scripted.
@@ -57,22 +72,39 @@ Include **Stable Diffusion** as one of your 2–3 self-generation tools if possi
    (fine for this audit, blocks a future commercial product). Label the
    SynthID column in output as a **"community-detector estimate
    (unofficial)"**, not equivalent to Google's own verification.
-3. **DIRE** — pretrained diffusion model + reconstruction error pipeline, from `ZhendongWang6/DIRE` on GitHub. Reuses the DiffusionForensics dataset for training/validation of the binary classifier.
+3. **DIRE triage gate — the official method is abandoned, not pursuing it.**
+   `ZhendongWang6/DIRE`'s real pipeline needs a GPU/MPI setup and a
+   pretrained checkpoint only distributed via Baidu/RecDrive (both
+   unreachable from here, no accessible mirror exists anywhere). Instead,
+   [`audit/dire.py`](audit/dire.py) runs a 2-model classifier ensemble —
+   `Ateeqq/ai-vs-human-image-detector` AND `prithivMLmods/Deep-Fake-Detector-v2-Model`,
+   both must agree for a flag. Chosen after benchmarking 4 candidates
+   against the ground-truth set in §3 (full comparison table in README);
+   no single-model swap was strictly better, each traded one failure mode
+   for a worse one. Works out of the box, CPU-only, no setup. A Colab
+   notebook (`colab/dire_batch.ipynb`) exists for running the *real* DIRE
+   method if you ever get the checkpoint working, but it's unverified and
+   not a priority — the local ensemble is the supported path.
 4. **Pillow (PIL)** — Python image library for the transformation battery: screenshot simulation, recompress (JPEG quality reduction), crop, resize.
+5. **The web app** ([`server.py`](server.py) + [`web/`](web/)) — a FastAPI
+   backend wrapping the same `audit/` pipeline as the CLI, plus a React
+   frontend (Overview/Results/Info). Deploy split: frontend as a static
+   Vercel build, backend needs a host with persistent processes/disk
+   (Railway, etc.) — see README's Deploying section.
 
 ---
 
 ## 5. Pipeline
 
 **Step 0 — Bulk collection** ([`audit/scraper.py`](audit/scraper.py))
-1. Scrape all images from the target company's site (`audit.py --url`), same-domain, robots.txt-respecting
-2. (Optional) spot-check DIRE's accuracy on the self-generated ground-truth set first, so you know how much to trust Step 1 on real-world content
+1. Scrape all images from the target site (`audit.py --url`, or the web app's Overview form), same-domain, robots.txt-respecting
+2. Drop anything under 150px on either dimension (icons/favicons/partner logos, not content photos) and anything Pillow can't identify as a real raster image (SVGs, HTML error pages) — both found as real bugs while testing against live sites, not hypothetical
 
-**Step 1 — DIRE triage gate** ([`audit/pipeline.py`](audit/pipeline.py)`:run_image`)
-3. Run DIRE on every scraped image → log reconstruction error + binary classification
-4. If DIRE classifies an image as real (`is_generated is False`), **skip it** — no C2PA/SynthID/transform checks run, verdict is recorded as "Not Applicable." If DIRE isn't configured or errors, this fails open (full checks still run) rather than silently skipping everything.
+**Step 1 — Triage gate** ([`audit/pipeline.py`](audit/pipeline.py)`:run_image`)
+3. Run the 2-model ensemble on every scraped image → log the AND-gated score + binary classification
+4. If not flagged as AI-generated, **skip it** — no C2PA/SynthID/transform checks run, verdict is recorded as "Not Applicable." If the classifier isn't configured or errors, this fails open (full checks still run) rather than silently skipping everything.
 
-**Step 2 — Baseline checks (pre-transformation), DIRE-flagged subset only**
+**Step 2 — Baseline checks (pre-transformation), flagged subset only**
 5. Run c2patool → log: manifest present (Y/N), full contents (including rights/copyright/authorship fields for the IP layer)
 6. Run SynthID check → log: watermark detected (Y/N)
 
@@ -84,7 +116,7 @@ Include **Stable Diffusion** as one of your 2–3 self-generation tools if possi
 
 **Step 4 — Re-run checks (post-transformation)**
 11. Repeat steps 5–6 on each transformed variant
-12. Optionally re-run DIRE post-transformation too — the paper reports it holds up under blur/compression, a good confirmation to log
+12. Re-run the triage classifier post-transformation too, logged as a secondary signal (does the detector's own confidence survive editing) — doesn't change the legal verdict, which is driven by C2PA/SynthID
 13. Log all results against the same schema as Step 2
 
 ---
@@ -97,7 +129,7 @@ For each image, compute **two independent verdicts** — they are not the same t
 - Marked AND survives ≥ recompress/crop/resize → `Likely Compliant`
 - Marked pre-transformation, gone post-transformation → `Marked but not Robust → Gap`
 - Not marked at all → `Non-Compliant`
-- Note separately if DIRE still flags it as AI-generated post-strip — arguably doesn't satisfy "machine-readable," even though it's technically detectable. Flag as a nuance, not a pass.
+- Note separately if the triage classifier still flags it as AI-generated post-strip — arguably doesn't satisfy "machine-readable," even though it's technically detectable. Flag as a nuance, not a pass.
 
 **SB 942 verdict:**
 - Same present/survives logic, but apply the stricter "extraordinarily difficult to remove" bar — an image can pass the EU test and fail the CA one.
@@ -106,44 +138,66 @@ For each image, compute **two independent verdicts** — they are not the same t
 - Copyright claim on the page/site + image likely lacks human authorship → `Copyrightability Risk`
 - C2PA manifest carried rights/licensing fields pre-transformation but not post → `Lost Attribution Chain`
 
+Each Non-Compliant/Gap verdict in the web app now also shows a concrete
+remediation tip (`remediationFor()` in `web/src/lib/types.ts`) — a
+self-audit tool needs to answer "now what," not just flag a problem.
+
 ---
 
 ## 7. Tool packaging
 
-Wrap steps 0–4 into a single CLI:
+Two interfaces over the same pipeline:
 
-```
+```bash
+# CLI
 python audit.py ./test_images/
 python audit.py --url https://example-company.com
+
+# Web app (see README for full setup)
+uvicorn server:app --port 8000   # backend
+cd web && npm run dev             # frontend, http://localhost:5173
 ```
 
-Should output one CSV/markdown table with columns:
+CSV/markdown output columns:
 
 `source | tool | C2PA pre/post | SynthID pre/post | DIRE pre/post | Article 50 verdict | SB 942 verdict | IP flag`
 
-This CLI is your "optional script/repo as evidence of the work."
+---
+
+## 8. Status / order of operations
+
+Done:
+1. ~~Pull DiffusionForensics, set up official DIRE~~ — abandoned, see §4.3
+2. Benchmarked the triage classifier against independently-sourced ground truth, picked the AND-gated ensemble
+3. Scraper built and hardened (icon filtering, SVG/unrecognized-content rejection, dedup)
+4. C2PA + SynthID wired up and working
+5. Transform battery + verdict logic built
+6. CLI built
+7. Web app built (Overview self-audit form, Results with live/example modes + image thumbnails + remediation tips, Info page)
+8. Tested end-to-end against real companies: elevenlabs.io, heygen.com, jasper.ai, synthesia.io, framer.com
+9. Backend hardened for public reachability (SSRF guard, rate limiting) and made deployable (Dockerfile)
+
+Open:
+- Frontend deploy to Vercel (in progress — framework-preset/build config issues)
+- Backend hosting decision (Railway attempt paused — currently local-only, meaning the deployed frontend's live-audit form won't work for anyone but you)
+- Source-URL traceability gap — no way to click through from a result card to where an image actually came from on the live site (flagged, not yet built)
+- Optional: a public write-up (§9) — not required for the project to be "done"
 
 ---
 
-## 8. Order of operations
+## 9. Write-up structure (optional — see §1)
 
-1. Pull the DiffusionForensics dataset and set up DIRE
-2. Generate 5–10 self-made images across 2–3 tools — spot-check DIRE's real-world accuracy, and exercise C2PA/SynthID as known-positive cases
-3. Pick a target company (site with visible AI imagery, ideally >1M monthly CA users, ideally makes a public AI-transparency claim)
-4. Run `audit.py --url` against the target site — scraper pulls images, DIRE triage gate (done) filters to the flagged subset
-5. Set up c2patool and `gpt-image-synthid-detector` so the flagged subset gets real checks instead of placeholders
-6. Run the full battery (transform + re-check) on the flagged subset
-7. Apply legal verdict + IP flag logic, generate the scored table
-8. Write the Substack piece: law vs. technical reality, with DIRE's known robustness to blur/compression as the central finding, and the triage gate as the scalability angle
-
----
-
-## 9. Write-up structure (suggested)
+If you do decide to write something up:
 
 1. Hook: the SynthID-stripping tool exists; regulation assumes marks survive — do they?
 2. Plain-English breakdown: what Article 50 / SB 942 actually require vs. common assumptions
 3. Methodology: the pipeline above, stated plainly
 4. Results table
-5. Key finding: which signals survive, which don't, and what still works even after they're gone (DIRE)
-6. Caveats: sample size asymmetry, cross-model DIRE limitations, SynthID check is a community-detector estimate validated only on GPT-Image-2 (not Google's own generators), not Google's official verifier
+5. Key finding: which signals survive, which don't
+6. Caveats: sample size, the triage classifier's documented precision/recall tradeoff, SynthID check is a community-detector estimate validated only on GPT-Image-2 (not Google's own generators), not Google's official verifier
 7. What this means for companies deploying AI content today
+
+Given the self-audit pivot, naming specific companies in a public piece
+carries real legal exposure (defamation/tortious interference risk if a
+named company disputes a finding) that a private/internal summary
+wouldn't — worth deciding deliberately, not by default.
