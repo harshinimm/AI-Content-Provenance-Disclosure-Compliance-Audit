@@ -20,6 +20,15 @@ RUN curl -sSL -o /tmp/c2patool.tar.gz \
     && chmod +x /usr/local/bin/c2patool
 ENV C2PATOOL_PATH=/usr/local/bin/c2patool
 
+# CPU-only torch/torchvision, installed *before* anything else pulls them
+# in transitively. PyPI's default "torch" package bundles full CUDA
+# support (multi-GB) that we don't need — everything here runs CPU-only —
+# and was almost certainly the actual cause of build failures/timeouts on
+# a hosted builder. Installing the CPU wheel first means the later
+# `pip install -r requirements.txt` calls (which just say torch>=X) see
+# the constraint already satisfied and never touch the CUDA build.
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
 # SynthID community detector (see audit/synthid.py) — cloned at build time,
 # same as the local dev setup, so its own requirements.txt (torch/
 # torchvision/opencv) get baked into the image rather than downloaded on

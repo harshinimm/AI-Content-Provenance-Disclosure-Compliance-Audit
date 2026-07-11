@@ -54,6 +54,14 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+def health() -> dict:
+    # PaaS hosts (Railway et al.) commonly health-check "/" and treat a
+    # non-2xx response as a failed deploy — without this the app itself
+    # could be running fine and still get marked unhealthy.
+    return {"status": "ok"}
+
+
 def _resolve_and_validate_host(url: str) -> None:
     """Reject scrape targets that resolve to loopback/private/link-local
     addresses (SSRF guard). Raises HTTPException on rejection.
