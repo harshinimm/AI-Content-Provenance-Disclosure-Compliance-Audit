@@ -1,0 +1,21 @@
+# Vercel should only ever build web/ (a static Vite app). Everything below
+# is the Python backend and its local tool checkouts — multi-GB of ML
+# model deps that must never be pulled into a Vercel build/function,
+# regardless of the "Include files outside Root Directory" project
+# setting. See README's Deploying section for the actual backend host.
+audit/
+server.py
+requirements.txt
+Dockerfile
+.dockerignore
+colab/
+data/
+test_images/
+output/
+c2patool/
+gpt-image-synthid-detector/
+DIRE/
+.venv/
+venv/
+__pycache__/
+*.pyc
