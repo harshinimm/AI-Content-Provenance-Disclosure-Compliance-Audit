@@ -43,7 +43,12 @@ from audit.scraper import scrape_images
 from audit.synthid import METHOD_UNOFFICIAL
 
 JOBS_DIR = Path(os.environ.get("JOBS_DIR", "output/web_jobs"))
-ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")]
+# Local dev, plus the deployed Vercel frontend (frontend-only deploy —
+# VITE_API_BASE isn't set there, so it falls back to localhost:8000,
+# meaning it only actually works while this backend is running locally
+# on the same machine someone's using the deployed site from).
+DEFAULT_ALLOWED_ORIGINS = "http://localhost:5173,https://ai-content-provenance-disclosure-co.vercel.app"
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS).split(",")]
 
 app = FastAPI()
 app.add_middleware(
