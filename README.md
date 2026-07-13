@@ -7,6 +7,11 @@ crop, resize), and scores the result against **EU AI Act Article 50(2)** and
 **California SB 942**. See [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) for the
 full legal/methodology writeup.
 
+**Live:** [ai-content-provenance-disclosure-co.vercel.app](https://ai-content-provenance-disclosure-co.vercel.app/)
+— frontend only (see [Deploying](#deploying)); Results/Info work standalone,
+the "Run audit" form needs the backend running locally on whoever's viewing
+it (it's not hosted anywhere yet).
+
 ## Quick start
 
 ```bash
